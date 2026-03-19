@@ -1,0 +1,63 @@
+import { invoke } from "@tauri-apps/api/core";
+import type { AccountWithStats, ProviderInfo, Snapshot } from "../types";
+
+export interface RefreshSummary {
+  refreshed_accounts: number;
+  failed_accounts: string[];
+}
+
+export function listAccounts(): Promise<AccountWithStats[]> {
+  return invoke("list_accounts");
+}
+
+export function addAccount(provider: string, username: string): Promise<string> {
+  return invoke("add_account", { provider, username });
+}
+
+export function removeAccount(accountId: string): Promise<void> {
+  return invoke("remove_account", { accountId });
+}
+
+export function getSnapshots7d(accountId: string): Promise<Snapshot[]> {
+  return invoke("get_snapshots_7d", { accountId });
+}
+
+export function getAvailableProviders(): Promise<ProviderInfo[]> {
+  return invoke("get_available_providers");
+}
+
+export function refreshAll(): Promise<RefreshSummary> {
+  return invoke("refresh_all");
+}
+
+export function setApiKey(provider: string, key: string): Promise<void> {
+  return invoke("set_api_key", { provider, key });
+}
+
+export function getApiKeyExists(provider: string): Promise<boolean> {
+  return invoke("get_api_key_exists", { provider });
+}
+
+export function getRefreshInterval(): Promise<number> {
+  return invoke("get_refresh_interval");
+}
+
+export function setRefreshInterval(minutes: number): Promise<void> {
+  return invoke("set_refresh_interval", { minutes });
+}
+
+export function getAutostart(): Promise<boolean> {
+  return invoke("get_autostart");
+}
+
+export function setAutostart(enabled: boolean): Promise<void> {
+  return invoke("set_autostart", { enabled });
+}
+
+export function getMilestoneEnabled(): Promise<boolean> {
+  return invoke("get_milestone_enabled");
+}
+
+export function setMilestoneEnabled(enabled: boolean): Promise<void> {
+  return invoke("set_milestone_enabled", { enabled });
+}

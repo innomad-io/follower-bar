@@ -1,0 +1,330 @@
+import { useEffect, useMemo, useState } from "react";
+import {
+  getApiKeyExists,
+  getAutostart,
+  getAvailableProviders,
+  getMilestoneEnabled,
+  getRefreshInterval,
+  removeAccount,
+  setApiKey,
+  setAutostart,
+  setMilestoneEnabled,
+  setRefreshInterval,
+} from "../lib/commands";
+import { useAccounts } from "../hooks/useAccounts";
+import type { ProviderInfo } from "../types";
+import { AddAccount } from "./AddAccount";
+
+interface SettingsProps {
+  onBack: () => void;
+}
+
+function Toggle({
+  enabled,
+  onToggle,
+}: {
+  enabled: boolean;
+  onToggle: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onToggle}
+      className={`flex h-6 w-11 items-center rounded-full p-1 transition ${
+        enabled
+          ? "bg-[linear-gradient(135deg,var(--accent),var(--accent-2))]"
+          : "bg-slate-300"
+      }`}
+    >
+      <span
+        className={`h-4 w-4 rounded-full bg-white shadow-sm transition ${
+          enabled ? "translate-x-5" : "translate-x-0"
+        }`}
+      />
+    </button>
+  );
+}
+
+export function Settings({ onBack }: SettingsProps) {
+  const { accounts, refresh } = useAccounts();
+  const [showAdd, setShowAdd] = useState(false);
+  const [providers, setProviders] = useState<ProviderInfo[]>([]);
+  const [apiKeyStatus, setApiKeyStatus] = useState<Record<string, boolean>>({});
+  const [apiKeyInputs, setApiKeyInputs] = useState<Record<string, string>>({});
+  const [interval, setIntervalValue] = useState(15);
+  const [milestoneEnabled, setMilestoneEnabledValue] = useState(true);
+  const [autostartEnabled, setAutostartEnabled] = useState(false);
+  const [settingsError, setSettingsError] = useState<string | null>(null);
+
+  useEffect(() => {
+    void Promise.all([
+      getRefreshInterval(),
+      getMilestoneEnabled(),
+      getAutostart(),
+      getAvailableProviders(),
+    ])
+      .then(async ([nextInterval, nextMilestoneEnabled, nextAutostart, nextProviders]) => {
+        setIntervalValue(nextInterval);
+        setMilestoneEnabledValue(nextMilestoneEnabled);
+        setAutostartEnabled(nextAutostart);
+        setProviders(nextProviders);
+
+        const nextApiKeyStatus: Record<string, boolean> = {};
+        for (const provider of nextProviders) {
+          if (provider.needs_api_key) {
+            nextApiKeyStatus[provider.id] = await getApiKeyExists(provider.id);
+          }
+        }
+        setApiKeyStatus(nextApiKeyStatus);
+        setSettingsError(null);
+      })
+      .catch((err) => {
+        setSettingsError(err instanceof Error ? err.message : String(err));
+      });
+  }, []);
+
+  const apiKeyProviders = useMemo(
+    () => providers.filter((provider) => provider.needs_api_key),
+    [providers]
+  );
+
+  const handleRemove = async (accountId: string) => {
+    try {
+      await removeAccount(accountId);
+      await refresh();
+      setSettingsError(null);
+    } catch (err) {
+      setSettingsError(err instanceof Error ? err.message : String(err));
+    }
+  };
+
+  const handleSaveApiKey = async (providerId: string) => {
+    const value = apiKeyInputs[providerId]?.trim();
+    if (!value) {
+      return;
+    }
+
+    try {
+      await setApiKey(providerId, value);
+      setApiKeyInputs((current) => ({ ...current, [providerId]: "" }));
+      setApiKeyStatus((current) => ({ ...current, [providerId]: true }));
+      setSettingsError(null);
+    } catch (err) {
+      setSettingsError(err instanceof Error ? err.message : String(err));
+    }
+  };
+
+  return (
+    <div className="flex h-full flex-col">
+      <header className="chrome-divider flex items-center justify-between border-b px-5 pb-4 pt-5">
+        <button
+          type="button"
+          onClick={onBack}
+          className="subtle-button rounded-full px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.18em] text-slate-700 transition hover:bg-white"
+        >
+          Back
+        </button>
+        <div className="text-center">
+          <div className="text-sm font-semibold text-slate-800">Settings</div>
+          <div className="caption-muted text-[11px] uppercase tracking-[0.24em]">
+            Preferences
+          </div>
+        </div>
+        <div className="w-[68px]" />
+      </header>
+
+      <div className="scroll-area flex-1 space-y-4 overflow-y-auto px-4 py-4">
+        {settingsError ? (
+          <div className="rounded-2xl border border-rose-200 bg-rose-50/85 px-4 py-3 text-xs text-rose-500">
+            {settingsError}
+          </div>
+        ) : null}
+
+        <section className="panel-section rounded-[24px] p-4">
+          <div className="mb-3 flex items-center justify-between">
+            <div>
+              <h3 className="text-sm font-semibold text-slate-800">Accounts</h3>
+              <p className="mt-1 text-xs title-muted">Manage tracked profiles.</p>
+            </div>
+            <button
+              type="button"
+              onClick={() => setShowAdd(true)}
+              className="accent-button rounded-full px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.18em] transition hover:brightness-105"
+            >
+              Add
+            </button>
+          </div>
+
+          <div className="space-y-2">
+            {accounts.length === 0 ? (
+              <div className="rounded-2xl border border-dashed border-slate-200 px-4 py-5 text-xs title-muted">
+                No accounts configured yet.
+              </div>
+            ) : (
+              accounts.map((account) => (
+                <div
+                  key={account.id}
+                  className="list-row flex items-center justify-between rounded-2xl px-3 py-3"
+                >
+                  <div className="min-w-0">
+                    <div className="text-sm font-medium text-slate-800">
+                      {account.display_name ?? account.username}
+                    </div>
+                    <div className="text-xs title-muted">
+                      {account.provider} · {account.username}
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => void handleRemove(account.id)}
+                    className="text-xs text-rose-500 transition hover:text-rose-400"
+                  >
+                    Remove
+                  </button>
+                </div>
+              ))
+            )}
+          </div>
+
+          {showAdd ? (
+            <div className="mt-4">
+              <AddAccount
+                onAdded={() => {
+                  setShowAdd(false);
+                  void refresh();
+                }}
+                onCancel={() => setShowAdd(false)}
+              />
+            </div>
+          ) : null}
+        </section>
+
+        <section className="panel-section rounded-[24px] p-4">
+          <h3 className="text-sm font-semibold text-slate-800">Refresh cadence</h3>
+          <p className="mt-1 text-xs title-muted">
+            Choose how frequently FollowBar checks follower counts.
+          </p>
+
+          <select
+            value={interval}
+            onChange={async (event) => {
+              const minutes = Number(event.target.value);
+              const previous = interval;
+              setIntervalValue(minutes);
+              try {
+                await setRefreshInterval(minutes);
+                setSettingsError(null);
+              } catch (err) {
+                setIntervalValue(previous);
+                setSettingsError(err instanceof Error ? err.message : String(err));
+              }
+            }}
+            className="soft-input mt-3 w-full rounded-2xl px-3 py-2.5 text-sm"
+          >
+            {[5, 15, 30, 60].map((minutes) => (
+              <option key={minutes} value={minutes}>
+                Every {minutes} minutes
+              </option>
+            ))}
+          </select>
+        </section>
+
+        {apiKeyProviders.length > 0 ? (
+          <section className="panel-section rounded-[24px] p-4">
+            <h3 className="text-sm font-semibold text-slate-800">Credentials</h3>
+            <p className="mt-1 text-xs title-muted">
+              Credentials are stored in the macOS Keychain, not SQLite.
+            </p>
+
+            <div className="mt-4 space-y-3">
+              {apiKeyProviders.map((provider) => (
+                <div key={provider.id} className="list-row rounded-2xl p-3">
+                  <div className="mb-2 flex items-center justify-between">
+                    <span className="text-sm text-slate-800">{provider.name}</span>
+                    <span className="caption-muted text-[11px] uppercase tracking-[0.18em]">
+                      {apiKeyStatus[provider.id] ? "Configured" : "Missing"}
+                    </span>
+                  </div>
+                  <p className="mb-2 text-xs title-muted">
+                    {provider.id === "x" ? "Bearer token" : "API key"}
+                  </p>
+                  <div className="flex gap-2">
+                    <input
+                      type="password"
+                      value={apiKeyInputs[provider.id] ?? ""}
+                      onChange={(event) =>
+                        setApiKeyInputs((current) => ({
+                          ...current,
+                          [provider.id]: event.target.value,
+                        }))
+                      }
+                      placeholder={provider.id === "x" ? "Paste bearer token" : "Paste API key"}
+                      className="soft-input min-w-0 flex-1 rounded-2xl px-3 py-2.5 text-sm"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => void handleSaveApiKey(provider.id)}
+                      className="subtle-button rounded-2xl px-3 py-2.5 text-sm font-medium text-slate-700 transition hover:bg-white"
+                    >
+                      Save
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </section>
+        ) : null}
+
+        <section className="panel-section rounded-[24px] p-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <h3 className="text-sm font-semibold text-slate-800">Milestone notifications</h3>
+              <p className="mt-1 text-xs title-muted">
+                Get a native macOS alert when a tracked account crosses a target.
+              </p>
+            </div>
+            <Toggle
+              enabled={milestoneEnabled}
+              onToggle={async () => {
+                const nextValue = !milestoneEnabled;
+                setMilestoneEnabledValue(nextValue);
+                try {
+                  await setMilestoneEnabled(nextValue);
+                  setSettingsError(null);
+                } catch (err) {
+                  setMilestoneEnabledValue(!nextValue);
+                  setSettingsError(err instanceof Error ? err.message : String(err));
+                }
+              }}
+            />
+          </div>
+        </section>
+
+        <section className="panel-section rounded-[24px] p-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <h3 className="text-sm font-semibold text-slate-800">Auto-start on login</h3>
+              <p className="mt-1 text-xs title-muted">
+                Launch FollowBar automatically when you sign in to macOS.
+              </p>
+            </div>
+            <Toggle
+              enabled={autostartEnabled}
+              onToggle={async () => {
+                const nextValue = !autostartEnabled;
+                setAutostartEnabled(nextValue);
+                try {
+                  await setAutostart(nextValue);
+                  setSettingsError(null);
+                } catch (err) {
+                  setAutostartEnabled(!nextValue);
+                  setSettingsError(err instanceof Error ? err.message : String(err));
+                }
+              }}
+            />
+          </div>
+        </section>
+      </div>
+    </div>
+  );
+}
