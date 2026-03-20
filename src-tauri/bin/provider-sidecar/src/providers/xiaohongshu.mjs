@@ -69,6 +69,25 @@ export async function verifyProfile(payload) {
   return fetchProfileInternal(payload, { interactive: true });
 }
 
+export function toSerializableState(value) {
+  if (value === null || value === undefined) {
+    return null;
+  }
+
+  try {
+    return JSON.parse(JSON.stringify(value));
+  } catch {
+    return null;
+  }
+}
+
+function shouldWaitForInteractiveResolution({ interactive, challengeRequired, profileEntryLinked, loginPromptVisible }) {
+  return Boolean(
+    interactive &&
+      (challengeRequired || (!profileEntryLinked && loginPromptVisible))
+  );
+}
+
 async function fetchProfileInternal(payload, options) {
   const profileDir = payload.profileDir;
   if (!fs.existsSync(path.join(profileDir, ".connected"))) {
@@ -95,7 +114,7 @@ async function fetchProfileInternal(payload, options) {
       const signals = await getPageSignals(page);
 
       if (signals.challengeRequired) {
-        if (options.interactive) {
+        if (shouldWaitForInteractiveResolution({ interactive: options.interactive, ...signals })) {
           continue;
         }
 
@@ -107,6 +126,10 @@ async function fetchProfileInternal(payload, options) {
       }
 
       if (!signals.profileEntryLinked && signals.loginPromptVisible) {
+        if (shouldWaitForInteractiveResolution({ interactive: options.interactive, ...signals })) {
+          continue;
+        }
+
         return {
           ok: false,
           code: "LOGIN_REQUIRED",
@@ -119,7 +142,17 @@ async function fetchProfileInternal(payload, options) {
         const bodyText = document.body.innerText ?? "";
         const html = document.documentElement.outerHTML ?? "";
         return {
-          state,
+          state: (() => {
+            if (state === null || state === undefined) {
+              return null;
+            }
+
+            try {
+              return JSON.parse(JSON.stringify(state));
+            } catch {
+              return null;
+            }
+          })(),
           bodyText,
           html,
           title: document.title ?? "",
@@ -269,9 +302,11 @@ function parseProfile(state, bodyText, html, targetUrl) {
     firstCapture(html, /"redId":"([^"]+)"/) ??
     resolvedId;
   const followers =
-    profileState?.followers ??
+    parseStructuredFollowers(html) ??
+    parseMetaFollowers(html) ??
     parseFollowers(bodyText) ??
-    parseFollowers(html);
+    parseFollowers(html) ??
+    profileState?.followers;
 
   if (!displayName || !resolvedId || followers === null) {
     return null;
@@ -301,22 +336,36 @@ function digProfileState(state) {
     null;
   const username = buckets.find((item) => item?.redId)?.redId ?? null;
   const followers =
-    buckets.find((item) => typeof item?.fans === "number")?.fans ??
-    buckets.find((item) => typeof item?.fansCount === "number")?.fansCount ??
+    state?.userPageData?.interactions?.fans ??
+    state?.userPageData?.interactions?.fansCount ??
+    state?.user?.interactions?.fans ??
+    state?.user?.interactions?.fansCount ??
+    state?.profile?.counts?.fans ??
+    state?.profile?.counts?.fansCount ??
     null;
 
   return { displayName, resolvedId, username, followers };
 }
 
 function parseFollowers(source) {
-  const compact = firstCapture(source, /([0-9]+(?:\.[0-9]+)?)\s*万\s*粉丝/);
-  if (compact) {
-    return Math.round(Number(compact) * 10000);
+  const compactAfter = firstCapture(source, /粉丝[：:\s]*([0-9]+(?:\.[0-9]+)?)\s*万/);
+  if (compactAfter) {
+    return Math.round(Number(compactAfter) * 10000);
   }
 
-  const exact = firstCapture(source, /粉丝[：:\s]*([0-9,]+)/);
-  if (exact) {
-    return Number(exact.replaceAll(",", ""));
+  const compactBefore = firstCapture(source, /([0-9]+(?:\.[0-9]+)?)\s*万\s*粉丝/);
+  if (compactBefore) {
+    return Math.round(Number(compactBefore) * 10000);
+  }
+
+  const exactAfter = firstCapture(source, /粉丝[：:\s]*([0-9][0-9,]*)/);
+  if (exactAfter) {
+    return Number(exactAfter.replaceAll(",", ""));
+  }
+
+  const exactBefore = firstCapture(source, /([0-9][0-9,]*)\s*粉丝/);
+  if (exactBefore) {
+    return Number(exactBefore.replaceAll(",", ""));
   }
 
   const jsonLike = firstCapture(source, /"fans(?:Count)?":([0-9]+)/);
@@ -325,6 +374,52 @@ function parseFollowers(source) {
   }
 
   return null;
+}
+
+function parseStructuredFollowers(source) {
+  const byType = firstCapture(
+    source,
+    /"type":"fans","name":"粉丝","count":"([0-9]+)"/
+  );
+  if (byType) {
+    return Number(byType);
+  }
+
+  const byName = firstCapture(
+    source,
+    /"name":"粉丝","count":"([0-9]+)"/
+  );
+  if (byName) {
+    return Number(byName);
+  }
+
+  return null;
+}
+
+function parseMetaFollowers(source) {
+  const exact = firstCapture(source, /有([0-9][0-9,]*)位粉丝/);
+  if (exact) {
+    return Number(exact.replaceAll(",", ""));
+  }
+
+  const compact = firstCapture(source, /有([0-9]+(?:\.[0-9]+)?)万位粉丝/);
+  if (compact) {
+    return Math.round(Number(compact) * 10000);
+  }
+
+  return null;
+}
+
+export function __test_parseFollowers(source) {
+  return parseFollowers(source);
+}
+
+export function __test_parseProfile(state, bodyText, html, targetUrl) {
+  return parseProfile(state, bodyText, html, targetUrl);
+}
+
+export function __test_shouldWaitForInteractiveResolution(input) {
+  return shouldWaitForInteractiveResolution(input);
 }
 
 function firstCapture(source, regex) {

@@ -100,10 +100,17 @@ export function AccountRow({ account, onVerifyInBrowser }: AccountRowProps) {
 
   return (
     <article className="account-row overflow-hidden transition">
-      <button
-        type="button"
+      <div
+        role="button"
+        tabIndex={0}
         onClick={() => setExpanded((value) => !value)}
-        className="flex w-full items-center justify-between gap-3 px-6 py-4 text-left transition"
+        onKeyDown={(event) => {
+          if (event.key === "Enter" || event.key === " ") {
+            event.preventDefault();
+            setExpanded((value) => !value);
+          }
+        }}
+        className="flex w-full cursor-pointer items-center justify-between gap-3 px-6 py-4 text-left transition"
       >
         <div className="flex min-w-0 items-center gap-4">
           <ProviderBadge provider={account.provider} />
@@ -145,7 +152,7 @@ export function AccountRow({ account, onVerifyInBrowser }: AccountRowProps) {
             </div>
           )}
         </div>
-      </button>
+      </div>
 
       {expanded ? (
         <div className="border-t border-[#eceef4] px-6 pb-4 pt-3">
