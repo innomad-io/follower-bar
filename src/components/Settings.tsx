@@ -1,10 +1,13 @@
 import { useEffect, useMemo, useState } from "react";
 import {
+  connectAdvancedProvider,
+  getAdvancedProviderStatus,
   getApiKeyExists,
   getAutostart,
   getAvailableProviders,
   getMilestoneEnabled,
   getRefreshInterval,
+  installAdvancedProviderRuntime,
   removeAccount,
   setApiKey,
   setAutostart,
@@ -12,7 +15,7 @@ import {
   setRefreshInterval,
 } from "../lib/commands";
 import { useAccounts } from "../hooks/useAccounts";
-import type { ProviderInfo } from "../types";
+import type { AdvancedProviderStatus, ProviderInfo } from "../types";
 import { AddAccount } from "./AddAccount";
 
 interface SettingsProps {
@@ -55,6 +58,8 @@ export function Settings({ onBack }: SettingsProps) {
   const [milestoneEnabled, setMilestoneEnabledValue] = useState(true);
   const [autostartEnabled, setAutostartEnabled] = useState(false);
   const [settingsError, setSettingsError] = useState<string | null>(null);
+  const [advancedStatus, setAdvancedStatus] = useState<Record<string, AdvancedProviderStatus>>({});
+  const [busyProviderAction, setBusyProviderAction] = useState<string | null>(null);
 
   useEffect(() => {
     void Promise.all([
@@ -76,6 +81,8 @@ export function Settings({ onBack }: SettingsProps) {
           }
         }
         setApiKeyStatus(nextApiKeyStatus);
+        const xiaohongshuStatus = await getAdvancedProviderStatus("xiaohongshu");
+        setAdvancedStatus({ xiaohongshu: xiaohongshuStatus });
         setSettingsError(null);
       })
       .catch((err) => {
@@ -112,6 +119,11 @@ export function Settings({ onBack }: SettingsProps) {
     } catch (err) {
       setSettingsError(err instanceof Error ? err.message : String(err));
     }
+  };
+
+  const refreshAdvancedStatus = async (providerId: string) => {
+    const nextStatus = await getAdvancedProviderStatus(providerId);
+    setAdvancedStatus((current) => ({ ...current, [providerId]: nextStatus }));
   };
 
   return (
@@ -274,6 +286,76 @@ export function Settings({ onBack }: SettingsProps) {
             </div>
           </section>
         ) : null}
+
+        <section className="panel-section rounded-[24px] p-4">
+          <div className="mb-3">
+            <h3 className="text-sm font-semibold text-slate-800">Advanced providers</h3>
+            <p className="mt-1 text-xs title-muted">
+              Xiaohongshu uses a browser-assisted runtime. Install Chromium once, then connect your session locally on this Mac.
+            </p>
+          </div>
+
+          <div className="list-row rounded-2xl p-3">
+            <div className="mb-3 flex items-start justify-between gap-3">
+              <div>
+                <div className="text-sm font-medium text-slate-800">Xiaohongshu</div>
+                <div className="mt-1 text-xs title-muted">
+                  Status: {advancedStatus.xiaohongshu?.state ?? "checking"}
+                </div>
+              </div>
+              <div className="caption-muted text-[11px] uppercase tracking-[0.18em]">
+                {advancedStatus.xiaohongshu?.session_connected ? "Connected" : "Not Connected"}
+              </div>
+            </div>
+
+            <div className="flex gap-2">
+              <button
+                type="button"
+                disabled={busyProviderAction !== null}
+                onClick={async () => {
+                  setBusyProviderAction("xiaohongshu-install");
+                  try {
+                    const nextStatus = await installAdvancedProviderRuntime("xiaohongshu");
+                    setAdvancedStatus((current) => ({
+                      ...current,
+                      xiaohongshu: nextStatus,
+                    }));
+                    setSettingsError(null);
+                  } catch (err) {
+                    setSettingsError(err instanceof Error ? err.message : String(err));
+                  } finally {
+                    setBusyProviderAction(null);
+                  }
+                }}
+                className="subtle-button rounded-2xl px-3 py-2 text-sm text-slate-700 transition hover:bg-white disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                Install runtime
+              </button>
+              <button
+                type="button"
+                disabled={busyProviderAction !== null}
+                onClick={async () => {
+                  setBusyProviderAction("xiaohongshu-connect");
+                  try {
+                    await connectAdvancedProvider("xiaohongshu");
+                    for (let attempt = 0; attempt < 30; attempt += 1) {
+                      await new Promise((resolve) => window.setTimeout(resolve, 2000));
+                      await refreshAdvancedStatus("xiaohongshu");
+                    }
+                    setSettingsError(null);
+                  } catch (err) {
+                    setSettingsError(err instanceof Error ? err.message : String(err));
+                  } finally {
+                    setBusyProviderAction(null);
+                  }
+                }}
+                className="accent-button rounded-2xl px-3 py-2 text-sm font-medium transition hover:brightness-105 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                Connect
+              </button>
+            </div>
+          </div>
+        </section>
 
         <section className="panel-section rounded-[24px] p-4">
           <div className="flex items-center justify-between">

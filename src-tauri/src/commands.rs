@@ -1,6 +1,8 @@
+use crate::account_config::AccountConfig;
 use crate::db::{Database, Snapshot};
 use crate::keychain;
 use crate::providers::ProviderManager;
+use crate::advanced_runtime::{self, AdvancedProviderStatus};
 use chrono::Utc;
 use serde::Serialize;
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -27,6 +29,9 @@ pub struct AccountWithStats {
     pub followers: Option<u64>,
     pub today_change: Option<i64>,
     pub last_fetched: Option<String>,
+    pub provider_state: Option<String>,
+    pub provider_message: Option<String>,
+    pub can_verify_in_browser: bool,
 }
 
 #[derive(Debug, Serialize)]
@@ -42,6 +47,97 @@ pub struct ProviderInfo {
 pub struct RefreshSummary {
     pub refreshed_accounts: usize,
     pub failed_accounts: Vec<String>,
+}
+
+#[tauri::command]
+pub async fn verify_xiaohongshu_account(
+    state: State<'_, AppState>,
+    app: tauri::AppHandle,
+    account_id: String,
+) -> Result<(), String> {
+    let account = {
+        let db = state.db.lock().map_err(|err| err.to_string())?;
+        db.list_accounts()
+            .map_err(|err| err.to_string())?
+            .into_iter()
+            .find(|account| account.id == account_id)
+            .ok_or_else(|| "Account not found".to_string())?
+    };
+
+    if account.provider != "xiaohongshu" {
+        return Err("verify_xiaohongshu_account only supports Xiaohongshu accounts".to_string());
+    }
+
+    let fetch_target = account
+        .resolved_id
+        .as_deref()
+        .unwrap_or(account.username.as_str());
+    let data = advanced_runtime::verify_xiaohongshu_profile(&app, fetch_target)
+        .map_err(|err| err.to_string())?;
+    let resolved_username = data
+        .extra
+        .as_ref()
+        .and_then(|extra| extra.get("username"))
+        .cloned()
+        .unwrap_or_else(|| account.username.clone());
+    let resolved_id = data
+        .extra
+        .as_ref()
+        .and_then(|extra| extra.get("resolved_id"))
+        .cloned()
+        .or(account.resolved_id.clone());
+    let display_name = data
+        .extra
+        .as_ref()
+        .and_then(|extra| extra.get("display_name"))
+        .cloned()
+        .or(account.display_name.clone());
+    let extra_json = data
+        .extra
+        .map(|extra| serde_json::to_string(&extra))
+        .transpose()
+        .map_err(|err| err.to_string())?;
+
+    let db = state.db.lock().map_err(|err| err.to_string())?;
+    db.update_account_profile(
+        &account.id,
+        &resolved_username,
+        resolved_id.as_deref(),
+        display_name.as_deref(),
+    )
+    .map_err(|err| err.to_string())?;
+    db.update_account_config(&account.id, None)
+        .map_err(|err| err.to_string())?;
+    db.insert_snapshot(&account.id, data.followers, extra_json.as_deref())
+        .map_err(|err| err.to_string())?;
+    db.ensure_milestones_for_account(&account.id, data.followers)
+        .map_err(|err| err.to_string())?;
+
+    Ok(())
+}
+
+#[tauri::command]
+pub fn get_advanced_provider_status(
+    app: tauri::AppHandle,
+    provider: String,
+) -> Result<AdvancedProviderStatus, String> {
+    advanced_runtime::get_provider_status(&app, &provider).map_err(|err| err.to_string())
+}
+
+#[tauri::command]
+pub fn install_advanced_provider_runtime(
+    app: tauri::AppHandle,
+    provider: String,
+) -> Result<AdvancedProviderStatus, String> {
+    advanced_runtime::install_provider_runtime(&app, &provider).map_err(|err| err.to_string())
+}
+
+#[tauri::command]
+pub fn connect_advanced_provider(
+    app: tauri::AppHandle,
+    provider: String,
+) -> Result<(), String> {
+    advanced_runtime::connect_provider(&app, &provider).map_err(|err| err.to_string())
 }
 
 #[tauri::command]
@@ -66,16 +162,22 @@ pub fn list_accounts(state: State<'_, AppState>) -> Result<Vec<AccountWithStats>
             }
             _ => None,
         };
+        let config = AccountConfig::from_json(account.config.as_deref());
+        let provider = account.provider.clone();
 
         result.push(AccountWithStats {
             id: account.id,
-            provider: account.provider,
+            provider,
             username: account.username,
             display_name: account.display_name,
             resolved_id: account.resolved_id,
             followers,
             today_change,
             last_fetched,
+            provider_state: config.provider_state.clone(),
+            provider_message: config.provider_message.clone(),
+            can_verify_in_browser: account.provider == "xiaohongshu"
+                && config.provider_state.as_deref() == Some("challenge_required"),
         });
     }
 
@@ -163,19 +265,38 @@ pub async fn do_refresh_all(
         let Some(provider) = state.providers.get(&account.provider) else {
             continue;
         };
+        let mut account_config = AccountConfig::from_json(account.config.as_deref());
 
-        let api_key = if provider.needs_api_key() {
-            keychain::get_api_key(&account.provider)
-                .map_err(|err| err.to_string())?
-        } else {
-            None
-        };
+        if account.provider == "xiaohongshu" && account_config.should_skip_xiaohongshu_refresh() {
+            failed_accounts.push(format!(
+                "{} ({}) skipped during cooldown: {}",
+                provider.name(),
+                account.display_name.as_deref().unwrap_or(&account.username),
+                account_config
+                    .provider_message
+                    .clone()
+                    .unwrap_or_else(|| "Xiaohongshu requires manual verification.".to_string())
+            ));
+            continue;
+        }
 
         let fetch_target = account
             .resolved_id
             .as_deref()
             .unwrap_or(account.username.as_str());
-        match provider.fetch(fetch_target, api_key.as_deref()).await {
+        let fetch_result = if account.provider == "xiaohongshu" {
+            advanced_runtime::fetch_xiaohongshu_profile(app, fetch_target)
+        } else {
+            let api_key = if provider.needs_api_key() {
+                keychain::get_api_key(&account.provider)
+                    .map_err(|err| err.to_string())?
+            } else {
+                None
+            };
+            provider.fetch(fetch_target, api_key.as_deref()).await
+        };
+
+        match fetch_result {
             Ok(data) => {
                 let resolved_username = data
                     .extra
@@ -202,6 +323,7 @@ pub async fn do_refresh_all(
                     .map_err(|err| err.to_string())?;
 
                 let db = state.db.lock().map_err(|err| err.to_string())?;
+                account_config.clear_runtime_state();
                 db.update_account_profile(
                     &account.id,
                     &resolved_username,
@@ -209,6 +331,8 @@ pub async fn do_refresh_all(
                     display_name.as_deref(),
                 )
                 .map_err(|err| err.to_string())?;
+                db.update_account_config(&account.id, account_config.to_json().as_deref())
+                    .map_err(|err| err.to_string())?;
                 let prev_followers = db
                     .get_latest_snapshot(&account.id)
                     .map_err(|err| err.to_string())?
@@ -246,6 +370,16 @@ pub async fn do_refresh_all(
                 refreshed_accounts += 1;
             }
             Err(err) => {
+                if account.provider == "xiaohongshu"
+                    && err.to_string().contains("Xiaohongshu showed a security restriction page")
+                {
+                    account_config.mark_xiaohongshu_challenge(
+                        "Manual verification required before Xiaohongshu can refresh again.",
+                    );
+                    let db = state.db.lock().map_err(|db_err| db_err.to_string())?;
+                    db.update_account_config(&account.id, account_config.to_json().as_deref())
+                        .map_err(|db_err| db_err.to_string())?;
+                }
                 failed_accounts.push(format!(
                     "{} ({}) failed: {}",
                     provider.name(),

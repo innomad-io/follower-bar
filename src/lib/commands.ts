@@ -1,5 +1,10 @@
 import { invoke } from "@tauri-apps/api/core";
-import type { AccountWithStats, ProviderInfo, Snapshot } from "../types";
+import type {
+  AccountWithStats,
+  AdvancedProviderStatus,
+  ProviderInfo,
+  Snapshot,
+} from "../types";
 
 export interface RefreshSummary {
   refreshed_accounts: number;
@@ -60,4 +65,24 @@ export function getMilestoneEnabled(): Promise<boolean> {
 
 export function setMilestoneEnabled(enabled: boolean): Promise<void> {
   return invoke("set_milestone_enabled", { enabled });
+}
+
+export function getAdvancedProviderStatus(
+  provider: string
+): Promise<AdvancedProviderStatus> {
+  return invoke("get_advanced_provider_status", { provider });
+}
+
+export function installAdvancedProviderRuntime(
+  provider: string
+): Promise<AdvancedProviderStatus> {
+  return invoke("install_advanced_provider_runtime", { provider });
+}
+
+export function connectAdvancedProvider(provider: string): Promise<void> {
+  return invoke("connect_advanced_provider", { provider });
+}
+
+export function verifyXiaohongshuAccount(accountId: string): Promise<void> {
+  return invoke("verify_xiaohongshu_account", { accountId });
 }

@@ -7,6 +7,9 @@ export interface AccountWithStats {
   followers: number | null;
   today_change: number | null;
   last_fetched: string | null;
+  provider_state: string | null;
+  provider_message: string | null;
+  can_verify_in_browser: boolean;
 }
 
 export interface Snapshot {
@@ -23,4 +26,13 @@ export interface ProviderInfo {
   icon: string;
   needs_api_key: boolean;
   coming_soon: boolean;
+}
+
+export interface AdvancedProviderStatus {
+  provider: string;
+  runtime_installed: boolean;
+  browser_installed: boolean;
+  session_connected: boolean;
+  state: string;
+  detail: string | null;
 }

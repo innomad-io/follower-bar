@@ -1,5 +1,9 @@
 import { useMemo } from "react";
-import { refreshAll } from "../lib/commands";
+import {
+  connectAdvancedProvider,
+  refreshAll,
+  verifyXiaohongshuAccount,
+} from "../lib/commands";
 import { useAccounts } from "../hooks/useAccounts";
 import { AccountRow } from "./AccountRow";
 import { useState } from "react";
@@ -86,7 +90,23 @@ export function AccountList({ onOpenSettings }: AccountListProps) {
         {accounts.length > 0 ? (
           <div className="divide-y divide-[#eceef4]">
             {accounts.map((account) => (
-              <AccountRow key={account.id} account={account} />
+              <AccountRow
+                key={account.id}
+                account={account}
+                onVerifyInBrowser={async (selectedAccount) => {
+                  if (selectedAccount.provider !== "xiaohongshu") {
+                    return;
+                  }
+
+                  try {
+                    await verifyXiaohongshuAccount(selectedAccount.id);
+                    await refresh();
+                    setRefreshError(null);
+                  } catch (err) {
+                    setRefreshError(err instanceof Error ? err.message : String(err));
+                  }
+                }}
+              />
             ))}
           </div>
         ) : null}
@@ -112,13 +132,31 @@ export function AccountList({ onOpenSettings }: AccountListProps) {
             try {
               const summary = await refreshAll();
               await refresh();
-              setRefreshError(
+              const nextError =
                 summary.failed_accounts.length > 0
                   ? summary.failed_accounts.join(" | ")
-                  : null
-              );
+                  : null;
+              setRefreshError(nextError);
+
+              if (
+                nextError?.includes("Xiaohongshu showed a security restriction page") &&
+                window.confirm(
+                  "Xiaohongshu triggered a security check. FollowBar can open a visible browser window so you can complete the verification manually. Continue?"
+                )
+              ) {
+                await connectAdvancedProvider("xiaohongshu");
+              }
             } catch (err) {
-              setRefreshError(err instanceof Error ? err.message : String(err));
+              const message = err instanceof Error ? err.message : String(err);
+              setRefreshError(message);
+              if (
+                message.includes("Xiaohongshu showed a security restriction page") &&
+                window.confirm(
+                  "Xiaohongshu triggered a security check. FollowBar can open a visible browser window so you can complete the verification manually. Continue?"
+                )
+              ) {
+                await connectAdvancedProvider("xiaohongshu");
+              }
             }
           }}
           className="text-[11px] font-medium text-[#2464e8] transition hover:text-[#215bc4]"

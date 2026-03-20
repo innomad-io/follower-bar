@@ -32,6 +32,10 @@ function formatFollowers(followers: number | null) {
     return "—";
   }
 
+  if (followers < 10_000) {
+    return Intl.NumberFormat("en").format(followers);
+  }
+
   return Intl.NumberFormat("en", {
     notation: "compact",
     maximumFractionDigits: followers >= 100_000 ? 1 : 0,
@@ -73,9 +77,10 @@ function ProviderBadge({ provider }: { provider: string }) {
 
 interface AccountRowProps {
   account: AccountWithStats;
+  onVerifyInBrowser?: (account: AccountWithStats) => void;
 }
 
-export function AccountRow({ account }: AccountRowProps) {
+export function AccountRow({ account, onVerifyInBrowser }: AccountRowProps) {
   const [expanded, setExpanded] = useState(false);
   const changeLabel = formatChange(account.today_change);
   const displayName = account.display_name?.trim() || account.username;
@@ -87,6 +92,11 @@ export function AccountRow({ account }: AccountRowProps) {
 
     return account.today_change >= 0 ? "status-good" : "status-bad";
   }, [account.today_change]);
+
+  const providerStatusLabel =
+    account.provider_state === "challenge_required"
+      ? account.provider_message ?? "Manual verification required"
+      : null;
 
   return (
     <article className="account-row overflow-hidden transition">
@@ -111,14 +121,39 @@ export function AccountRow({ account }: AccountRowProps) {
           <div className="text-[15px] font-semibold tracking-[-0.03em] text-slate-800">
             {formatFollowers(account.followers)}
           </div>
-          <div className={`mt-0.5 text-[10px] font-semibold ${changeClassName}`}>
-            {changeLabel ?? "Waiting for first refresh"}
-          </div>
+          {providerStatusLabel ? (
+            <>
+              <div className="mt-0.5 text-[10px] font-semibold text-amber-700">
+                Verification needed
+              </div>
+              {account.can_verify_in_browser ? (
+                <button
+                  type="button"
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    onVerifyInBrowser?.(account);
+                  }}
+                  className="mt-1 rounded-full bg-amber-50 px-2.5 py-1 text-[10px] font-medium text-amber-700 transition hover:bg-amber-100"
+                >
+                  Verify
+                </button>
+              ) : null}
+            </>
+          ) : (
+            <div className={`mt-0.5 text-[10px] font-semibold ${changeClassName}`}>
+              {changeLabel ?? "Waiting for first refresh"}
+            </div>
+          )}
         </div>
       </button>
 
       {expanded ? (
         <div className="border-t border-[#eceef4] px-6 pb-4 pt-3">
+          {providerStatusLabel ? (
+            <div className="mb-3 rounded-2xl border border-amber-200 bg-amber-50/90 px-3 py-2 text-xs text-amber-700">
+              <div>{providerStatusLabel}</div>
+            </div>
+          ) : null}
           <MiniChart accountId={account.id} />
         </div>
       ) : null}

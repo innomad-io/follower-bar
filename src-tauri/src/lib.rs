@@ -1,3 +1,5 @@
+pub mod account_config;
+pub mod advanced_runtime;
 pub mod commands;
 pub mod db;
 pub mod keychain;
@@ -12,6 +14,7 @@ use scheduler::Scheduler;
 use std::sync::atomic::AtomicBool;
 use std::sync::{Arc, Mutex};
 use tauri::{
+    image::Image,
     tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent},
     Emitter, Manager, Monitor, PhysicalPosition, PhysicalSize, Position, Rect, WebviewWindow,
     WindowEvent,
@@ -164,14 +167,12 @@ pub fn run() {
             let _ = window.set_shadow(false);
             let _ = window.hide();
 
-            let tray_icon = app
-                .default_window_icon()
-                .expect("default icon should be available")
-                .clone();
+            let tray_icon = Image::new(include_bytes!("../icons/icon.rgba"), 64, 64);
 
             let window_open_for_tray = Arc::clone(&is_window_open);
             let _tray = TrayIconBuilder::new()
                 .icon(tray_icon)
+                .icon_as_template(true)
                 .tooltip("FollowBar")
                 .on_tray_icon_event(move |tray, event| {
                     if let TrayIconEvent::Click {
@@ -213,7 +214,11 @@ pub fn run() {
             commands::get_autostart,
             commands::set_autostart,
             commands::get_milestone_enabled,
-            commands::set_milestone_enabled
+            commands::set_milestone_enabled,
+            commands::get_advanced_provider_status,
+            commands::install_advanced_provider_runtime,
+            commands::connect_advanced_provider,
+            commands::verify_xiaohongshu_account
         ])
         .run(tauri::generate_context!())
         .expect("error while running Tauri application");

@@ -57,6 +57,8 @@ export function AddAccount({ onAdded, onCancel }: AddAccountProps) {
         ? "UID, nickname, or space.bilibili.com/... URL"
         : selectedProvider?.id === "x"
           ? "@username or x.com/username"
+          : selectedProvider?.id === "xiaohongshu"
+            ? "user/profile URL or user ID"
           : "Handle, username, or profile URL";
 
   return (

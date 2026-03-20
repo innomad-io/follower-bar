@@ -1,0 +1,10 @@
+{
+  "name": "followbar-provider-sidecar",
+  "private": true,
+  "type": "module",
+  "version": "0.1.0",
+  "description": "Browser-assisted provider runtime for FollowBar",
+  "dependencies": {
+    "playwright": "^1.58.2"
+  }
+}

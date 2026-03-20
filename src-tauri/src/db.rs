@@ -136,6 +136,16 @@ impl Database {
         Ok(())
     }
 
+    pub fn update_account_config(&self, id: &str, config: Option<&str>) -> Result<()> {
+        self.conn.execute(
+            "UPDATE accounts
+             SET config = ?2
+             WHERE id = ?1",
+            params![id, config],
+        )?;
+        Ok(())
+    }
+
     pub fn remove_account(&self, id: &str) -> Result<()> {
         self.conn
             .execute("DELETE FROM accounts WHERE id = ?1", params![id])?;
@@ -462,5 +472,25 @@ mod tests {
         assert_eq!(account.username, "@design");
         assert_eq!(account.resolved_id.as_deref(), Some("UC123"));
         assert_eq!(account.display_name.as_deref(), Some("Design Theory"));
+    }
+
+    #[test]
+    fn test_update_account_config() {
+        let db = test_db();
+        db.add_account("acc1", "xiaohongshu", "60383492000000000100a467", None, None, None)
+            .unwrap();
+
+        db.update_account_config("acc1", Some("{\"state\":\"challenge_required\"}"))
+            .unwrap();
+
+        let account = db.list_accounts().unwrap().remove(0);
+        assert_eq!(
+            account.config.as_deref(),
+            Some("{\"state\":\"challenge_required\"}")
+        );
+
+        db.update_account_config("acc1", None).unwrap();
+        let account = db.list_accounts().unwrap().remove(0);
+        assert_eq!(account.config, None);
     }
 }
