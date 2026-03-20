@@ -57,8 +57,10 @@ export function AddAccount({ onAdded, onCancel }: AddAccountProps) {
         ? "UID, nickname, or space.bilibili.com/... URL"
         : selectedProvider?.id === "x"
           ? "@username or x.com/username"
-          : selectedProvider?.id === "xiaohongshu"
+        : selectedProvider?.id === "xiaohongshu"
             ? "user/profile URL or user ID"
+          : selectedProvider?.id === "wechat"
+            ? "公众号名称或备注标签"
           : "Handle, username, or profile URL";
 
   return (
@@ -99,6 +101,8 @@ export function AddAccount({ onAdded, onCancel }: AddAccountProps) {
           <p className="text-xs text-fuchsia-500">
             {selectedProvider.id === "x"
               ? "A bearer token is optional. If it is missing, FollowBar will fall back to the public X profile page."
+              : selectedProvider.id === "wechat"
+                ? "微信公众号需要在设置页里配置 AppID 和 AppSecret。这里输入的只是显示名称。"
               : "An API key is optional. If it is missing, FollowBar will fall back to the public profile page when possible."}
           </p>
         ) : null}

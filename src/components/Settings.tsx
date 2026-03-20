@@ -106,14 +106,28 @@ export function Settings({ onBack }: SettingsProps) {
   };
 
   const handleSaveApiKey = async (providerId: string) => {
-    const value = apiKeyInputs[providerId]?.trim();
+    const value =
+      providerId === "wechat"
+        ? JSON.stringify({
+            app_id: apiKeyInputs["wechat:app_id"]?.trim() ?? "",
+            app_secret: apiKeyInputs["wechat:app_secret"]?.trim() ?? "",
+          })
+        : apiKeyInputs[providerId]?.trim();
     if (!value) {
       return;
     }
 
     try {
       await setApiKey(providerId, value);
-      setApiKeyInputs((current) => ({ ...current, [providerId]: "" }));
+      setApiKeyInputs((current) =>
+        providerId === "wechat"
+          ? {
+              ...current,
+              "wechat:app_id": "",
+              "wechat:app_secret": "",
+            }
+          : { ...current, [providerId]: "" }
+      );
       setApiKeyStatus((current) => ({ ...current, [providerId]: true }));
       setSettingsError(null);
     } catch (err) {
@@ -258,29 +272,71 @@ export function Settings({ onBack }: SettingsProps) {
                     </span>
                   </div>
                   <p className="mb-2 text-xs title-muted">
-                    {provider.id === "x" ? "Bearer token" : "API key"}
+                    {provider.id === "x"
+                      ? "Bearer token"
+                      : provider.id === "wechat"
+                        ? "AppID and AppSecret"
+                        : "API key"}
                   </p>
-                  <div className="flex gap-2">
-                    <input
-                      type="password"
-                      value={apiKeyInputs[provider.id] ?? ""}
-                      onChange={(event) =>
-                        setApiKeyInputs((current) => ({
-                          ...current,
-                          [provider.id]: event.target.value,
-                        }))
-                      }
-                      placeholder={provider.id === "x" ? "Paste bearer token" : "Paste API key"}
-                      className="soft-input min-w-0 flex-1 rounded-2xl px-3 py-2.5 text-sm"
-                    />
-                    <button
-                      type="button"
-                      onClick={() => void handleSaveApiKey(provider.id)}
-                      className="subtle-button rounded-2xl px-3 py-2.5 text-sm font-medium text-slate-700 transition hover:bg-white"
-                    >
-                      Save
-                    </button>
-                  </div>
+                  {provider.id === "wechat" ? (
+                    <div className="space-y-2">
+                      <input
+                        type="password"
+                        value={apiKeyInputs["wechat:app_id"] ?? ""}
+                        onChange={(event) =>
+                          setApiKeyInputs((current) => ({
+                            ...current,
+                            "wechat:app_id": event.target.value,
+                          }))
+                        }
+                        placeholder="Paste AppID"
+                        className="soft-input min-w-0 w-full rounded-2xl px-3 py-2.5 text-sm"
+                      />
+                      <div className="flex gap-2">
+                        <input
+                          type="password"
+                          value={apiKeyInputs["wechat:app_secret"] ?? ""}
+                          onChange={(event) =>
+                            setApiKeyInputs((current) => ({
+                              ...current,
+                              "wechat:app_secret": event.target.value,
+                            }))
+                          }
+                          placeholder="Paste AppSecret"
+                          className="soft-input min-w-0 flex-1 rounded-2xl px-3 py-2.5 text-sm"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => void handleSaveApiKey(provider.id)}
+                          className="subtle-button rounded-2xl px-3 py-2.5 text-sm font-medium text-slate-700 transition hover:bg-white"
+                        >
+                          Save
+                        </button>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="flex gap-2">
+                      <input
+                        type="password"
+                        value={apiKeyInputs[provider.id] ?? ""}
+                        onChange={(event) =>
+                          setApiKeyInputs((current) => ({
+                            ...current,
+                            [provider.id]: event.target.value,
+                          }))
+                        }
+                        placeholder={provider.id === "x" ? "Paste bearer token" : "Paste API key"}
+                        className="soft-input min-w-0 flex-1 rounded-2xl px-3 py-2.5 text-sm"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => void handleSaveApiKey(provider.id)}
+                        className="subtle-button rounded-2xl px-3 py-2.5 text-sm font-medium text-slate-700 transition hover:bg-white"
+                      >
+                        Save
+                      </button>
+                    </div>
+                  )}
                 </div>
               ))}
             </div>

@@ -11,6 +11,7 @@ use tauri::{AppHandle, Manager};
 
 const ADVANCED_RUNTIME_VERSION: &str = "1";
 const XIAOHONGSHU_PROVIDER: &str = "xiaohongshu";
+const X_PROVIDER: &str = "x";
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AdvancedProviderStatus {
@@ -117,6 +118,11 @@ pub fn fetch_xiaohongshu_profile(app: &AppHandle, input: &str) -> Result<Followe
     run_xiaohongshu_profile_action(app, input, "fetch_profile")
 }
 
+pub fn fetch_x_profile(app: &AppHandle, input: &str) -> Result<FollowerData> {
+    ensure_runtime_ready(app)?;
+    run_public_profile_action(app, X_PROVIDER, input, "fetch_profile")
+}
+
 pub fn verify_xiaohongshu_profile(app: &AppHandle, input: &str) -> Result<FollowerData> {
     run_xiaohongshu_profile_action(app, input, "verify_profile")
 }
@@ -179,6 +185,84 @@ fn run_xiaohongshu_profile_action(
             .collect(),
         ),
     })
+}
+
+fn run_public_profile_action(
+    app: &AppHandle,
+    provider: &str,
+    input: &str,
+    action: &str,
+) -> Result<FollowerData> {
+    let root = runtime_root(app)?;
+    let payload = json!({
+        "action": action,
+        "platform": provider,
+        "runtimeRoot": root,
+        "browserPath": browsers_dir(&root),
+        "account": {
+            "input": input,
+        }
+    });
+
+    let response = run_sidecar_json(payload)?;
+    if !response.ok {
+        return Err(anyhow!(
+            "{}",
+            response
+                .message
+                .unwrap_or_else(|| response.code.unwrap_or_else(|| "Unknown sidecar failure".to_string()))
+        ));
+    }
+
+    let followers = response
+        .followers
+        .ok_or_else(|| anyhow!("{provider} sidecar returned no follower count"))?;
+    let username = response
+        .username
+        .unwrap_or_else(|| input.to_string());
+    let resolved_id = response
+        .resolved_id
+        .clone()
+        .unwrap_or_else(|| input.to_string());
+    let display_name = response
+        .display_name
+        .clone()
+        .unwrap_or_else(|| username.clone());
+
+    Ok(FollowerData {
+        followers,
+        fetched_at: Utc::now(),
+        extra: Some(
+            [
+                ("username".to_string(), username),
+                ("resolved_id".to_string(), resolved_id),
+                ("display_name".to_string(), display_name),
+            ]
+            .into_iter()
+            .collect(),
+        ),
+    })
+}
+
+fn ensure_runtime_ready(app: &AppHandle) -> Result<()> {
+    let root = runtime_root(app)?;
+    fs::create_dir_all(root.join("logs"))?;
+    fs::create_dir_all(root.join("browsers"))?;
+
+    if manifest_path(&root).exists() && chromium_installed(&root) {
+        return Ok(());
+    }
+
+    run_install_commands(&root)?;
+    let manifest = RuntimeManifest {
+        version: ADVANCED_RUNTIME_VERSION.to_string(),
+        installed_at: Utc::now().to_rfc3339(),
+    };
+    fs::write(
+        manifest_path(&root),
+        serde_json::to_vec_pretty(&manifest).context("serialize manifest")?,
+    )?;
+    Ok(())
 }
 
 fn run_install_commands(root: &Path) -> Result<()> {
@@ -308,7 +392,7 @@ fn sidecar_entry() -> PathBuf {
 }
 
 fn ensure_supported(provider: &str) -> Result<()> {
-    if provider == XIAOHONGSHU_PROVIDER {
+    if provider == XIAOHONGSHU_PROVIDER || provider == X_PROVIDER {
         Ok(())
     } else {
         Err(anyhow!("Unsupported advanced provider: {provider}"))

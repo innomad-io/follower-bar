@@ -1,8 +1,8 @@
 use crate::account_config::AccountConfig;
+use crate::advanced_runtime::{self, AdvancedProviderStatus};
 use crate::db::{Database, Snapshot};
 use crate::keychain;
 use crate::providers::ProviderManager;
-use crate::advanced_runtime::{self, AdvancedProviderStatus};
 use chrono::Utc;
 use serde::Serialize;
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -11,6 +11,29 @@ use tauri::State;
 use tauri_plugin_autostart::ManagerExt as _;
 use tauri_plugin_notification::NotificationExt;
 use uuid::Uuid;
+
+fn serialize_utc_naive(naive: chrono::NaiveDateTime) -> String {
+    chrono::DateTime::<Utc>::from_naive_utc_and_offset(naive, Utc).to_rfc3339()
+}
+
+#[derive(Debug, Serialize)]
+pub struct SnapshotDto {
+    pub id: i64,
+    pub account_id: String,
+    pub followers: u64,
+    pub extra: Option<String>,
+    pub fetched_at: String,
+}
+
+fn snapshot_to_dto(snapshot: Snapshot) -> SnapshotDto {
+    SnapshotDto {
+        id: snapshot.id,
+        account_id: snapshot.account_id,
+        followers: snapshot.followers,
+        extra: snapshot.extra,
+        fetched_at: serialize_utc_naive(snapshot.fetched_at),
+    }
+}
 
 pub struct AppState {
     pub db: Mutex<Database>,
@@ -155,7 +178,9 @@ pub fn list_accounts(state: State<'_, AppState>) -> Result<Vec<AccountWithStats>
             .map_err(|err| err.to_string())?;
 
         let followers = latest.as_ref().map(|snapshot| snapshot.followers);
-        let last_fetched = latest.as_ref().map(|snapshot| snapshot.fetched_at.to_string());
+        let last_fetched = latest
+            .as_ref()
+            .map(|snapshot| serialize_utc_naive(snapshot.fetched_at));
         let today_change = match (latest.as_ref(), today_first.as_ref()) {
             (Some(latest), Some(today_first)) => {
                 Some(latest.followers as i64 - today_first.followers as i64)
@@ -182,6 +207,41 @@ pub fn list_accounts(state: State<'_, AppState>) -> Result<Vec<AccountWithStats>
     }
 
     Ok(result)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{serialize_utc_naive, snapshot_to_dto};
+    use crate::db::Snapshot;
+    use chrono::NaiveDateTime;
+
+    #[test]
+    fn serializes_snapshot_timestamp_with_utc_offset() {
+        let value = chrono::NaiveDate::from_ymd_opt(2026, 3, 20)
+            .expect("valid date")
+            .and_hms_opt(1, 2, 3)
+            .expect("valid time");
+
+        assert_eq!(serialize_utc_naive(value), "2026-03-20T01:02:03+00:00");
+    }
+
+    #[test]
+    fn snapshot_dto_uses_rfc3339_timestamp() {
+        let snapshot = Snapshot {
+            id: 1,
+            account_id: "acc".to_string(),
+            followers: 6983,
+            extra: None,
+            fetched_at: NaiveDateTime::parse_from_str(
+                "2026-03-20 12:34:56",
+                "%Y-%m-%d %H:%M:%S",
+            )
+            .expect("valid timestamp"),
+        };
+
+        let dto = snapshot_to_dto(snapshot);
+        assert_eq!(dto.fetched_at, "2026-03-20T12:34:56+00:00");
+    }
 }
 
 #[tauri::command]
@@ -227,10 +287,11 @@ pub fn remove_account(state: State<'_, AppState>, account_id: String) -> Result<
 pub fn get_snapshots_7d(
     state: State<'_, AppState>,
     account_id: String,
-) -> Result<Vec<Snapshot>, String> {
+) -> Result<Vec<SnapshotDto>, String> {
     let db = state.db.lock().map_err(|err| err.to_string())?;
     let since = (Utc::now() - chrono::Duration::days(7)).naive_utc();
     db.get_snapshots_since(&account_id, since)
+        .map(|snapshots| snapshots.into_iter().map(snapshot_to_dto).collect())
         .map_err(|err| err.to_string())
 }
 
@@ -286,6 +347,14 @@ pub async fn do_refresh_all(
             .unwrap_or(account.username.as_str());
         let fetch_result = if account.provider == "xiaohongshu" {
             advanced_runtime::fetch_xiaohongshu_profile(app, fetch_target)
+        } else if account.provider == "x" {
+            let api_key = keychain::get_api_key(&account.provider)
+                .map_err(|err| err.to_string())?;
+            if let Some(token) = api_key.as_deref() {
+                provider.fetch(fetch_target, Some(token)).await
+            } else {
+                advanced_runtime::fetch_x_profile(app, fetch_target)
+            }
         } else {
             let api_key = if provider.needs_api_key() {
                 keychain::get_api_key(&account.provider)

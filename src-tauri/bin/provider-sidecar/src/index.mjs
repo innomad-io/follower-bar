@@ -1,5 +1,14 @@
 import fs from "node:fs";
-import { healthCheck, connect, fetchProfile, verifyProfile } from "./providers/xiaohongshu.mjs";
+import {
+  healthCheck as xiaohongshuHealthCheck,
+  connect,
+  fetchProfile as fetchXiaohongshuProfile,
+  verifyProfile,
+} from "./providers/xiaohongshu.mjs";
+import {
+  healthCheck as xHealthCheck,
+  fetchProfile as fetchXProfile,
+} from "./providers/x.mjs";
 
 async function readInput() {
   const filePath = process.argv[2];
@@ -19,21 +28,29 @@ async function main() {
   const action = payload.action;
   const platform = payload.platform;
 
-  if (platform !== "xiaohongshu") {
-    throw new Error(`Unsupported platform: ${platform}`);
-  }
-
   let result;
-  if (action === "health_check") {
-    result = await healthCheck(payload);
-  } else if (action === "connect") {
-    result = await connect(payload);
-  } else if (action === "fetch_profile") {
-    result = await fetchProfile(payload);
-  } else if (action === "verify_profile") {
-    result = await verifyProfile(payload);
+  if (platform === "xiaohongshu") {
+    if (action === "health_check") {
+      result = await xiaohongshuHealthCheck(payload);
+    } else if (action === "connect") {
+      result = await connect(payload);
+    } else if (action === "fetch_profile") {
+      result = await fetchXiaohongshuProfile(payload);
+    } else if (action === "verify_profile") {
+      result = await verifyProfile(payload);
+    } else {
+      throw new Error(`Unsupported action for ${platform}: ${action}`);
+    }
+  } else if (platform === "x") {
+    if (action === "health_check") {
+      result = await xHealthCheck(payload);
+    } else if (action === "fetch_profile") {
+      result = await fetchXProfile(payload);
+    } else {
+      throw new Error(`Unsupported action for ${platform}: ${action}`);
+    }
   } else {
-    throw new Error(`Unsupported action: ${action}`);
+    throw new Error(`Unsupported platform: ${platform}`);
   }
 
   process.stdout.write(`${JSON.stringify(result)}\n`);
