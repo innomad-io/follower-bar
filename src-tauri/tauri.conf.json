@@ -1,6 +1,6 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
-  "productName": "FollowBar",
+  "productName": "FollowerBar",
   "version": "0.1.0",
   "identifier": "io.innomad.followbar",
   "build": {
@@ -15,7 +15,7 @@
     "windows": [
       {
         "label": "main",
-        "title": "FollowBar",
+        "title": "FollowerBar",
         "width": 432,
         "height": 476,
         "visible": false,

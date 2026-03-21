@@ -117,7 +117,7 @@ export function AddAccount({ onAdded, onCancel }: AddAccountProps) {
             Choose Platform
           </div>
           <p className="text-[13px] leading-5 text-[#6f7882]">
-            Select the platform first. FollowBar will show the right provider options after the account is added.
+            Select the platform first. FollowerBar will show the right provider options after the account is added.
           </p>
         </section>
 

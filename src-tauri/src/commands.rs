@@ -452,7 +452,7 @@ pub async fn do_refresh_all(
                         let _ = app
                             .notification()
                             .builder()
-                            .title("FollowBar")
+                            .title("FollowerBar")
                             .body(format!(
                                 "🎉 你的 {} 账号 {} 粉丝突破 {}！",
                                 provider.name(),

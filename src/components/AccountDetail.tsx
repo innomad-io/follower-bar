@@ -326,7 +326,7 @@ export function AccountDetail({
               <div className="settings-row-copy">
                 <div className="settings-row-title">Remove account</div>
                 <div className="settings-row-subtitle">
-                  Delete this account and its local history from FollowBar.
+                  Delete this account and its local history from FollowerBar.
                 </div>
               </div>
               <button

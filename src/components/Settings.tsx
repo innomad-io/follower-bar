@@ -185,7 +185,7 @@ export function Settings({ onBack }: SettingsProps) {
               <span className="brand-mark-bar brand-mark-bar-lg" />
             </div>
           </div>
-          <div className="text-[14px] font-semibold text-slate-800">FollowBar</div>
+          <div className="text-[14px] font-semibold text-slate-800">FollowerBar</div>
           <div className="text-[12px] text-[#6f7882]">{t("minimal_global_settings")}</div>
         </section>
       </main>

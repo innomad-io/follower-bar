@@ -138,7 +138,7 @@ pub fn run() {
             std::fs::create_dir_all(&app_dir)?;
 
             let db_path = app_dir.join("followbar.db");
-            let db = Database::open(&db_path).expect("failed to open FollowBar database");
+            let db = Database::open(&db_path).expect("failed to open FollowerBar database");
             let _ = db.cleanup_old_snapshots();
 
             let refresh_interval = db.get_refresh_interval().ok().flatten().unwrap_or(15);
@@ -173,7 +173,7 @@ pub fn run() {
             let _tray = TrayIconBuilder::new()
                 .icon(tray_icon)
                 .icon_as_template(true)
-                .tooltip("FollowBar")
+                .tooltip("FollowerBar")
                 .on_tray_icon_event(move |tray, event| {
                     if let TrayIconEvent::Click {
                         button: MouseButton::Left,
