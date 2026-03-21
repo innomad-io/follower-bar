@@ -52,11 +52,13 @@ export function AddAccount({ onAdded, onCancel }: AddAccountProps) {
 
   const placeholder =
     selectedProvider?.id === "youtube"
-      ? "@channelhandle or youtube.com/@channelhandle"
+        ? "@channelhandle or youtube.com/@channelhandle"
       : selectedProvider?.id === "bilibili"
         ? "UID, nickname, or space.bilibili.com/... URL"
         : selectedProvider?.id === "x"
           ? "@username or x.com/username"
+        : selectedProvider?.id === "douyin"
+          ? "douyin.com/user/... URL or user ID"
         : selectedProvider?.id === "xiaohongshu"
             ? "user/profile URL or user ID"
           : selectedProvider?.id === "wechat"

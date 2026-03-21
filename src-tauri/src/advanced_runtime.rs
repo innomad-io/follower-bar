@@ -13,6 +13,7 @@ const ADVANCED_RUNTIME_VERSION: &str = "1";
 const XIAOHONGSHU_PROVIDER: &str = "xiaohongshu";
 const X_PROVIDER: &str = "x";
 const WECHAT_PROVIDER: &str = "wechat";
+const DOUYIN_PROVIDER: &str = "douyin";
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AdvancedProviderStatus {
@@ -127,6 +128,11 @@ pub fn fetch_x_profile(app: &AppHandle, input: &str) -> Result<FollowerData> {
 pub fn fetch_wechat_profile(app: &AppHandle, input: &str) -> Result<FollowerData> {
     ensure_runtime_ready(app)?;
     run_connected_profile_action(app, WECHAT_PROVIDER, input, "fetch_profile")
+}
+
+pub fn fetch_douyin_profile(app: &AppHandle, input: &str) -> Result<FollowerData> {
+    ensure_runtime_ready(app)?;
+    run_public_profile_action(app, DOUYIN_PROVIDER, input, "fetch_profile")
 }
 
 pub fn verify_xiaohongshu_profile(app: &AppHandle, input: &str) -> Result<FollowerData> {
@@ -457,7 +463,11 @@ fn sidecar_entry() -> PathBuf {
 }
 
 fn ensure_supported(provider: &str) -> Result<()> {
-    if provider == XIAOHONGSHU_PROVIDER || provider == X_PROVIDER || provider == WECHAT_PROVIDER {
+    if provider == XIAOHONGSHU_PROVIDER
+        || provider == X_PROVIDER
+        || provider == WECHAT_PROVIDER
+        || provider == DOUYIN_PROVIDER
+    {
         Ok(())
     } else {
         Err(anyhow!("Unsupported advanced provider: {provider}"))

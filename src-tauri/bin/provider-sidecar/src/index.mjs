@@ -10,6 +10,10 @@ import {
   fetchProfile as fetchXProfile,
 } from "./providers/x.mjs";
 import {
+  healthCheck as douyinHealthCheck,
+  fetchProfile as fetchDouyinProfile,
+} from "./providers/douyin.mjs";
+import {
   healthCheck as wechatHealthCheck,
   connect as connectWechat,
   fetchProfile as fetchWechatProfile,
@@ -51,6 +55,14 @@ async function main() {
       result = await xHealthCheck(payload);
     } else if (action === "fetch_profile") {
       result = await fetchXProfile(payload);
+    } else {
+      throw new Error(`Unsupported action for ${platform}: ${action}`);
+    }
+  } else if (platform === "douyin") {
+    if (action === "health_check") {
+      result = await douyinHealthCheck(payload);
+    } else if (action === "fetch_profile") {
+      result = await fetchDouyinProfile(payload);
     } else {
       throw new Error(`Unsupported action for ${platform}: ${action}`);
     }
