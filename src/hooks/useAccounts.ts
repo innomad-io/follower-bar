@@ -26,4 +26,3 @@ export function useAccounts() {
 
   return { accounts, error, loading, refresh };
 }
-
