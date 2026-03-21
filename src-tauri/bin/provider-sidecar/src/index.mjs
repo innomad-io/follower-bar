@@ -9,6 +9,11 @@ import {
   healthCheck as xHealthCheck,
   fetchProfile as fetchXProfile,
 } from "./providers/x.mjs";
+import {
+  healthCheck as wechatHealthCheck,
+  connect as connectWechat,
+  fetchProfile as fetchWechatProfile,
+} from "./providers/wechat.mjs";
 
 async function readInput() {
   const filePath = process.argv[2];
@@ -46,6 +51,16 @@ async function main() {
       result = await xHealthCheck(payload);
     } else if (action === "fetch_profile") {
       result = await fetchXProfile(payload);
+    } else {
+      throw new Error(`Unsupported action for ${platform}: ${action}`);
+    }
+  } else if (platform === "wechat") {
+    if (action === "health_check") {
+      result = await wechatHealthCheck(payload);
+    } else if (action === "connect") {
+      result = await connectWechat(payload);
+    } else if (action === "fetch_profile") {
+      result = await fetchWechatProfile(payload);
     } else {
       throw new Error(`Unsupported action for ${platform}: ${action}`);
     }

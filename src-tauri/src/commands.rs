@@ -347,6 +347,8 @@ pub async fn do_refresh_all(
             .unwrap_or(account.username.as_str());
         let fetch_result = if account.provider == "xiaohongshu" {
             advanced_runtime::fetch_xiaohongshu_profile(app, fetch_target)
+        } else if account.provider == "wechat" {
+            advanced_runtime::fetch_wechat_profile(app, fetch_target)
         } else if account.provider == "x" {
             let api_key = keychain::get_api_key(&account.provider)
                 .map_err(|err| err.to_string())?;

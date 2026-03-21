@@ -81,8 +81,11 @@ export function Settings({ onBack }: SettingsProps) {
           }
         }
         setApiKeyStatus(nextApiKeyStatus);
-        const xiaohongshuStatus = await getAdvancedProviderStatus("xiaohongshu");
-        setAdvancedStatus({ xiaohongshu: xiaohongshuStatus });
+        const [xiaohongshuStatus, wechatStatus] = await Promise.all([
+          getAdvancedProviderStatus("xiaohongshu"),
+          getAdvancedProviderStatus("wechat"),
+        ]);
+        setAdvancedStatus({ xiaohongshu: xiaohongshuStatus, wechat: wechatStatus });
         setSettingsError(null);
       })
       .catch((err) => {
@@ -347,7 +350,7 @@ export function Settings({ onBack }: SettingsProps) {
           <div className="mb-3">
             <h3 className="text-sm font-semibold text-slate-800">Advanced providers</h3>
             <p className="mt-1 text-xs title-muted">
-              Xiaohongshu uses a browser-assisted runtime. Install Chromium once, then connect your session locally on this Mac.
+              Xiaohongshu and WeChat use a browser-assisted runtime. Install Chromium once, then connect each session locally on this Mac.
             </p>
           </div>
 
@@ -397,6 +400,67 @@ export function Settings({ onBack }: SettingsProps) {
                     for (let attempt = 0; attempt < 30; attempt += 1) {
                       await new Promise((resolve) => window.setTimeout(resolve, 2000));
                       await refreshAdvancedStatus("xiaohongshu");
+                    }
+                    setSettingsError(null);
+                  } catch (err) {
+                    setSettingsError(err instanceof Error ? err.message : String(err));
+                  } finally {
+                    setBusyProviderAction(null);
+                  }
+                }}
+                className="accent-button rounded-2xl px-3 py-2 text-sm font-medium transition hover:brightness-105 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                Connect
+              </button>
+            </div>
+          </div>
+
+          <div className="mt-3 list-row rounded-2xl p-3">
+            <div className="mb-3 flex items-start justify-between gap-3">
+              <div>
+                <div className="text-sm font-medium text-slate-800">WeChat Official Account</div>
+                <div className="mt-1 text-xs title-muted">
+                  Status: {advancedStatus.wechat?.state ?? "checking"}
+                </div>
+              </div>
+              <div className="caption-muted text-[11px] uppercase tracking-[0.18em]">
+                {advancedStatus.wechat?.session_connected ? "Connected" : "Not Connected"}
+              </div>
+            </div>
+
+            <div className="flex gap-2">
+              <button
+                type="button"
+                disabled={busyProviderAction !== null}
+                onClick={async () => {
+                  setBusyProviderAction("wechat-install");
+                  try {
+                    const nextStatus = await installAdvancedProviderRuntime("wechat");
+                    setAdvancedStatus((current) => ({
+                      ...current,
+                      wechat: nextStatus,
+                    }));
+                    setSettingsError(null);
+                  } catch (err) {
+                    setSettingsError(err instanceof Error ? err.message : String(err));
+                  } finally {
+                    setBusyProviderAction(null);
+                  }
+                }}
+                className="subtle-button rounded-2xl px-3 py-2 text-sm text-slate-700 transition hover:bg-white disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                Install runtime
+              </button>
+              <button
+                type="button"
+                disabled={busyProviderAction !== null}
+                onClick={async () => {
+                  setBusyProviderAction("wechat-connect");
+                  try {
+                    await connectAdvancedProvider("wechat");
+                    for (let attempt = 0; attempt < 30; attempt += 1) {
+                      await new Promise((resolve) => window.setTimeout(resolve, 2000));
+                      await refreshAdvancedStatus("wechat");
                     }
                     setSettingsError(null);
                   } catch (err) {

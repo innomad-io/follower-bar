@@ -175,6 +175,13 @@ impl Database {
     }
 
     pub fn insert_snapshot(&self, account_id: &str, followers: u64, extra: Option<&str>) -> Result<()> {
+        if let Some(latest) = self.get_latest_snapshot(account_id)? {
+            let seconds_since_last = (Utc::now().naive_utc() - latest.fetched_at).num_seconds();
+            if latest.followers == followers && seconds_since_last >= 0 && seconds_since_last < 60 {
+                return Ok(());
+            }
+        }
+
         self.conn.execute(
             "INSERT INTO snapshots (account_id, followers, extra, fetched_at)
              VALUES (?1, ?2, ?3, ?4)",
@@ -434,6 +441,21 @@ mod tests {
 
         let latest = db.get_latest_snapshot("acc1").unwrap().unwrap();
         assert_eq!(latest.followers, 105);
+    }
+
+    #[test]
+    fn test_skip_duplicate_snapshot_within_one_minute() {
+        let db = test_db();
+        db.add_account("acc1", "wechat", "user", None, None, None)
+            .unwrap();
+        db.insert_snapshot("acc1", 11184, None).unwrap();
+        db.insert_snapshot("acc1", 11184, None).unwrap();
+
+        let snapshots = db
+            .get_snapshots_since("acc1", NaiveDateTime::MIN)
+            .unwrap();
+        assert_eq!(snapshots.len(), 1);
+        assert_eq!(snapshots[0].followers, 11184);
     }
 
     #[test]

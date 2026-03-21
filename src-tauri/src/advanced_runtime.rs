@@ -12,6 +12,7 @@ use tauri::{AppHandle, Manager};
 const ADVANCED_RUNTIME_VERSION: &str = "1";
 const XIAOHONGSHU_PROVIDER: &str = "xiaohongshu";
 const X_PROVIDER: &str = "x";
+const WECHAT_PROVIDER: &str = "wechat";
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AdvancedProviderStatus {
@@ -123,6 +124,11 @@ pub fn fetch_x_profile(app: &AppHandle, input: &str) -> Result<FollowerData> {
     run_public_profile_action(app, X_PROVIDER, input, "fetch_profile")
 }
 
+pub fn fetch_wechat_profile(app: &AppHandle, input: &str) -> Result<FollowerData> {
+    ensure_runtime_ready(app)?;
+    run_connected_profile_action(app, WECHAT_PROVIDER, input, "fetch_profile")
+}
+
 pub fn verify_xiaohongshu_profile(app: &AppHandle, input: &str) -> Result<FollowerData> {
     run_xiaohongshu_profile_action(app, input, "verify_profile")
 }
@@ -198,6 +204,65 @@ fn run_public_profile_action(
         "action": action,
         "platform": provider,
         "runtimeRoot": root,
+        "browserPath": browsers_dir(&root),
+        "account": {
+            "input": input,
+        }
+    });
+
+    let response = run_sidecar_json(payload)?;
+    if !response.ok {
+        return Err(anyhow!(
+            "{}",
+            response
+                .message
+                .unwrap_or_else(|| response.code.unwrap_or_else(|| "Unknown sidecar failure".to_string()))
+        ));
+    }
+
+    let followers = response
+        .followers
+        .ok_or_else(|| anyhow!("{provider} sidecar returned no follower count"))?;
+    let username = response
+        .username
+        .unwrap_or_else(|| input.to_string());
+    let resolved_id = response
+        .resolved_id
+        .clone()
+        .unwrap_or_else(|| input.to_string());
+    let display_name = response
+        .display_name
+        .clone()
+        .unwrap_or_else(|| username.clone());
+
+    Ok(FollowerData {
+        followers,
+        fetched_at: Utc::now(),
+        extra: Some(
+            [
+                ("username".to_string(), username),
+                ("resolved_id".to_string(), resolved_id),
+                ("display_name".to_string(), display_name),
+            ]
+            .into_iter()
+            .collect(),
+        ),
+    })
+}
+
+fn run_connected_profile_action(
+    app: &AppHandle,
+    provider: &str,
+    input: &str,
+    action: &str,
+) -> Result<FollowerData> {
+    let root = runtime_root(app)?;
+    let profile_dir = profile_dir(&root, provider);
+    let payload = json!({
+        "action": action,
+        "platform": provider,
+        "runtimeRoot": root,
+        "profileDir": profile_dir,
         "browserPath": browsers_dir(&root),
         "account": {
             "input": input,
@@ -392,7 +457,7 @@ fn sidecar_entry() -> PathBuf {
 }
 
 fn ensure_supported(provider: &str) -> Result<()> {
-    if provider == XIAOHONGSHU_PROVIDER || provider == X_PROVIDER {
+    if provider == XIAOHONGSHU_PROVIDER || provider == X_PROVIDER || provider == WECHAT_PROVIDER {
         Ok(())
     } else {
         Err(anyhow!("Unsupported advanced provider: {provider}"))
