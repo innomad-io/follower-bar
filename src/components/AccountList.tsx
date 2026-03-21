@@ -1,131 +1,145 @@
-import { useMemo } from "react";
-import {
-  connectAdvancedProvider,
-  refreshAll,
-  verifyXiaohongshuAccount,
-} from "../lib/commands";
+import { useMemo, useState } from "react";
+import { refreshAll } from "../lib/commands";
 import { useAccounts } from "../hooks/useAccounts";
+import { useI18n } from "../lib/i18n";
 import { AccountRow } from "./AccountRow";
-import { useState } from "react";
 
 interface AccountListProps {
   onOpenSettings: () => void;
+  onOpenAddAccount: () => void;
+  onOpenAccount: (accountId: string) => void;
 }
 
-export function AccountList({ onOpenSettings }: AccountListProps) {
-  const { accounts, error, loading, refresh } = useAccounts();
-  const [refreshError, setRefreshError] = useState<string | null>(null);
+function lastUpdatedLabel(
+  isoValues: Array<string | null>,
+  t: (key: "last_updated_never" | "last_updated_just_now" | "last_updated_minutes" | "last_updated_time", vars?: Record<string, string | number>) => string
+) {
+  const timestamps = isoValues
+    .filter((value): value is string => Boolean(value))
+    .map((value) => new Date(value).getTime())
+    .filter((value) => Number.isFinite(value));
 
-  const lastUpdated = useMemo(() => {
-    const timestamps = accounts
-      .map((account) => account.last_fetched)
-      .filter((value): value is string => Boolean(value))
-      .map((value) => new Date(value).getTime())
-      .filter((value) => Number.isFinite(value));
+  if (timestamps.length === 0) {
+    return t("last_updated_never");
+  }
 
-    if (timestamps.length === 0) {
-      return null;
-    }
+  const lastUpdated = new Date(Math.max(...timestamps));
+  const diffMinutes = Math.round((Date.now() - lastUpdated.getTime()) / 60_000);
+  if (diffMinutes <= 1) {
+    return t("last_updated_just_now");
+  }
+  if (diffMinutes < 60) {
+    return t("last_updated_minutes", { minutes: diffMinutes });
+  }
 
-    return new Date(Math.max(...timestamps));
-  }, [accounts]);
-
-  const lastUpdatedLabel = useMemo(() => {
-    if (!lastUpdated) {
-      return "Last updated: Never";
-    }
-
-    const diffMinutes = Math.round((Date.now() - lastUpdated.getTime()) / 60_000);
-    if (diffMinutes <= 1) {
-      return "Last updated: Just now";
-    }
-    if (diffMinutes < 60) {
-      return `Last updated: ${diffMinutes}m ago`;
-    }
-
-    return `Last updated: ${lastUpdated.toLocaleTimeString([], {
+  return t("last_updated_time", {
+    time: lastUpdated.toLocaleTimeString([], {
       hour: "numeric",
       minute: "2-digit",
-    })}`;
-  }, [lastUpdated]);
+    }),
+  });
+}
+
+export function AccountList({
+  onOpenSettings,
+  onOpenAddAccount,
+  onOpenAccount,
+}: AccountListProps) {
+  const { t } = useI18n();
+  const { accounts, error, loading, refresh } = useAccounts();
+  const [refreshError, setRefreshError] = useState<string | null>(null);
+  const [expandedAccountId, setExpandedAccountId] = useState<string | null>(null);
+  const footerLabel = useMemo(
+    () => lastUpdatedLabel(accounts.map((account) => account.last_fetched), t),
+    [accounts, t]
+  );
 
   return (
-    <div className="flex h-full flex-col">
-      <header className="chrome-divider flex items-center justify-between border-b px-6 pb-5 pt-5">
-        <div className="text-[22px] font-semibold tracking-[-0.05em] text-slate-900">
-          FollowBar
+    <div className="screen-shell">
+      <header className="top-bar">
+        <div className="top-bar-brand stitch-brand">
+          <div className="stitch-brand-icon" aria-hidden="true">
+            <svg viewBox="0 0 20 20" className="h-4 w-4">
+              <path
+                d="M4 14.5h2v-4H4v4Zm3.5 0h2v-6h-2v6Zm3.5 0h2V6.5h-2v8Zm3.5 0h2V4h-2v10.5Z"
+                fill="currentColor"
+              />
+              <path d="m4.5 9.5 3-2.5 2 1 4-4" stroke="currentColor" strokeWidth="1.2" fill="none" />
+            </svg>
+          </div>
+          <div className="top-bar-title display">{t("app_name")}</div>
         </div>
-        <button
-          type="button"
-          onClick={onOpenSettings}
-          aria-label="Open settings"
-          className="flex h-8 w-8 items-center justify-center text-[#7b8aa5] transition hover:text-slate-700"
-        >
-          <svg viewBox="0 0 24 24" aria-hidden="true" className="h-7 w-7">
-            <path
-              d="M10.7 3.2h2.6l.4 2.1c.5.1 1 .3 1.4.6l1.9-1.1 1.8 1.8-1.1 1.9c.3.4.5.9.6 1.4l2.1.4v2.6l-2.1.4c-.1.5-.3 1-.6 1.4l1.1 1.9-1.8 1.8-1.9-1.1c-.4.3-.9.5-1.4.6l-.4 2.1h-2.6l-.4-2.1c-.5-.1-1-.3-1.4-.6l-1.9 1.1-1.8-1.8 1.1-1.9c-.3-.4-.5-.9-.6-1.4l-2.1-.4v-2.6l2.1-.4c.1-.5.3-1 .6-1.4L5.8 6.6l1.8-1.8 1.9 1.1c.4-.3.9-.5 1.4-.6Z"
-              fill="currentColor"
-            />
-            <circle cx="12" cy="12" r="3" fill="#fff" />
-          </svg>
-        </button>
+        <div className="top-bar-actions">
+          <button
+            type="button"
+            onClick={onOpenAddAccount}
+            aria-label={t("add_account")}
+            className="icon-button"
+          >
+            <svg viewBox="0 0 20 20" aria-hidden="true" className="h-4 w-4">
+              <path
+                d="M10 4.25c.414 0 .75.336.75.75v4.25H15c.414 0 .75.336.75.75s-.336.75-.75.75h-4.25V15c0 .414-.336.75-.75.75s-.75-.336-.75-.75v-4.25H5c-.414 0-.75-.336-.75-.75s.336-.75.75-.75h4.25V5c0-.414.336-.75.75-.75Z"
+                fill="currentColor"
+              />
+            </svg>
+          </button>
+          <button
+            type="button"
+            onClick={onOpenSettings}
+            aria-label={t("settings")}
+            className="icon-button"
+          >
+            <svg viewBox="0 0 24 24" aria-hidden="true" className="h-4.5 w-4.5">
+              <path
+                d="M10.7 3.2h2.6l.4 2.1c.5.1 1 .3 1.4.6l1.9-1.1 1.8 1.8-1.1 1.9c.3.4.5.9.6 1.4l2.1.4v2.6l-2.1.4c-.1.5-.3 1-.6 1.4l1.1 1.9-1.8 1.8-1.9-1.1c-.4.3-.9.5-1.4.6l-.4 2.1h-2.6l-.4-2.1c-.5-.1-1-.3-1.4-.6l-1.9 1.1-1.8-1.8 1.1-1.9c-.3-.4-.5-.9-.6-1.4l-2.1-.4v-2.6l2.1-.4c.1-.5.3-1 .6-1.4L5.8 6.6l1.8-1.8 1.9 1.1c.4-.3.9-.5 1.4-.6Z"
+                fill="currentColor"
+              />
+              <circle cx="12" cy="12" r="3" fill="white" />
+            </svg>
+          </button>
+        </div>
       </header>
 
-      <div className="scroll-area list-surface flex-1 overflow-y-auto py-1">
+      <main className="screen-content screen-content-list">
         {loading && accounts.length === 0 ? (
-          <div className="mx-7 rounded-[18px] bg-white px-5 py-8 text-center text-sm title-muted">
-            Loading your accounts...
-          </div>
+          <div className="empty-state-card">{t("loading_accounts")}</div>
         ) : null}
 
         {!loading && accounts.length === 0 ? (
-          <div className="mx-7 rounded-[18px] bg-white px-5 py-7 text-center">
-            <div className="text-lg font-semibold text-slate-800">No accounts yet</div>
-            <p className="mt-2 text-sm title-muted">
-              Click the settings button to add your first profile and start tracking.
+          <div className="empty-state-card">
+            <div className="empty-state-title">{t("no_accounts")}</div>
+            <p className="empty-state-copy">
+              {t("no_accounts_copy")}
             </p>
+            <button type="button" onClick={onOpenAddAccount} className="primary-button mt-4">
+              {t("add_account")}
+            </button>
           </div>
         ) : null}
 
         {accounts.length > 0 ? (
-          <div className="divide-y divide-[#eceef4]">
+          <div className="account-list-stack flat refined">
             {accounts.map((account) => (
               <AccountRow
                 key={account.id}
                 account={account}
-                onVerifyInBrowser={async (selectedAccount) => {
-                  if (selectedAccount.provider !== "xiaohongshu") {
-                    return;
-                  }
-
-                  try {
-                    await verifyXiaohongshuAccount(selectedAccount.id);
-                    await refresh();
-                    setRefreshError(null);
-                  } catch (err) {
-                    setRefreshError(err instanceof Error ? err.message : String(err));
-                  }
+                expanded={expandedAccountId === account.id}
+                onToggleExpand={() => {
+                  setExpandedAccountId((current) => (current === account.id ? null : account.id));
                 }}
+                onOpenEdit={() => onOpenAccount(account.id)}
+                onRefreshList={refresh}
               />
             ))}
           </div>
         ) : null}
 
-        {error ? (
-          <div className="mx-7 mt-4 rounded-2xl border border-rose-200 bg-rose-50/90 px-4 py-3 text-xs text-rose-500">
-            {error}
-          </div>
-        ) : null}
+        {error ? <div className="error-banner">{error}</div> : null}
+        {refreshError ? <div className="error-banner">{refreshError}</div> : null}
+      </main>
 
-        {refreshError ? (
-          <div className="mx-7 mt-4 rounded-2xl border border-rose-200 bg-rose-50/90 px-4 py-3 text-xs text-rose-500">
-            {refreshError}
-          </div>
-        ) : null}
-      </div>
-
-      <footer className="chrome-divider flex items-center justify-between border-t px-6 py-3">
-        <div className="text-[11px] font-medium text-[#aab6cb]">{lastUpdatedLabel}</div>
+      <footer className="bottom-bar refined">
+        <div className="bottom-bar-caption">{footerLabel}</div>
         <button
           type="button"
           onClick={async () => {
@@ -137,31 +151,20 @@ export function AccountList({ onOpenSettings }: AccountListProps) {
                   ? summary.failed_accounts.join(" | ")
                   : null;
               setRefreshError(nextError);
-
-              if (
-                nextError?.includes("Xiaohongshu showed a security restriction page") &&
-                window.confirm(
-                  "Xiaohongshu triggered a security check. FollowBar can open a visible browser window so you can complete the verification manually. Continue?"
-                )
-              ) {
-                await connectAdvancedProvider("xiaohongshu");
-              }
             } catch (err) {
               const message = err instanceof Error ? err.message : String(err);
               setRefreshError(message);
-              if (
-                message.includes("Xiaohongshu showed a security restriction page") &&
-                window.confirm(
-                  "Xiaohongshu triggered a security check. FollowBar can open a visible browser window so you can complete the verification manually. Continue?"
-                )
-              ) {
-                await connectAdvancedProvider("xiaohongshu");
-              }
             }
           }}
-          className="text-[11px] font-medium text-[#2464e8] transition hover:text-[#215bc4]"
+          className="refresh-link"
         >
-          Refresh
+          <svg viewBox="0 0 20 20" aria-hidden="true" className="h-3.5 w-3.5">
+            <path
+              d="M15.49 6.15a.75.75 0 0 1 1.06 0 6.5 6.5 0 1 1-1.2 9.86.75.75 0 1 1 1.2-.9 5 5 0 1 0 .95-7.58V10a.75.75 0 0 1-1.5 0V6.68a.53.53 0 0 1 .53-.53h3.3a.75.75 0 0 1 0 1.5h-2.26a6.54 6.54 0 0 1-1.08-1.5Z"
+              fill="currentColor"
+            />
+          </svg>
+          {t("refresh")}
         </button>
       </footer>
     </div>

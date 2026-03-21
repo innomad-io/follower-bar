@@ -1,22 +1,13 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
+import { useI18n, type SupportedLocale } from "../lib/i18n";
 import {
-  connectAdvancedProvider,
-  getAdvancedProviderStatus,
-  getApiKeyExists,
   getAutostart,
-  getAvailableProviders,
   getMilestoneEnabled,
   getRefreshInterval,
-  installAdvancedProviderRuntime,
-  removeAccount,
-  setApiKey,
   setAutostart,
   setMilestoneEnabled,
   setRefreshInterval,
 } from "../lib/commands";
-import { useAccounts } from "../hooks/useAccounts";
-import type { AdvancedProviderStatus, ProviderInfo } from "../types";
-import { AddAccount } from "./AddAccount";
 
 interface SettingsProps {
   onBack: () => void;
@@ -30,503 +21,183 @@ function Toggle({
   onToggle: () => void;
 }) {
   return (
-    <button
-      type="button"
-      onClick={onToggle}
-      className={`flex h-6 w-11 items-center rounded-full p-1 transition ${
-        enabled
-          ? "bg-[linear-gradient(135deg,var(--accent),var(--accent-2))]"
-          : "bg-slate-300"
-      }`}
-    >
-      <span
-        className={`h-4 w-4 rounded-full bg-white shadow-sm transition ${
-          enabled ? "translate-x-5" : "translate-x-0"
-        }`}
-      />
+    <button type="button" onClick={onToggle} className={`toggle ${enabled ? "enabled" : ""}`}>
+      <span className="toggle-knob" />
     </button>
   );
 }
 
 export function Settings({ onBack }: SettingsProps) {
-  const { accounts, refresh } = useAccounts();
-  const [showAdd, setShowAdd] = useState(false);
-  const [providers, setProviders] = useState<ProviderInfo[]>([]);
-  const [apiKeyStatus, setApiKeyStatus] = useState<Record<string, boolean>>({});
-  const [apiKeyInputs, setApiKeyInputs] = useState<Record<string, string>>({});
+  const { t, preference, setPreference } = useI18n();
   const [interval, setIntervalValue] = useState(15);
   const [milestoneEnabled, setMilestoneEnabledValue] = useState(true);
   const [autostartEnabled, setAutostartEnabled] = useState(false);
   const [settingsError, setSettingsError] = useState<string | null>(null);
-  const [advancedStatus, setAdvancedStatus] = useState<Record<string, AdvancedProviderStatus>>({});
-  const [busyProviderAction, setBusyProviderAction] = useState<string | null>(null);
 
   useEffect(() => {
-    void Promise.all([
-      getRefreshInterval(),
-      getMilestoneEnabled(),
-      getAutostart(),
-      getAvailableProviders(),
-    ])
-      .then(async ([nextInterval, nextMilestoneEnabled, nextAutostart, nextProviders]) => {
+    void Promise.all([getRefreshInterval(), getMilestoneEnabled(), getAutostart()])
+      .then(([nextInterval, nextMilestoneEnabled, nextAutostart]) => {
         setIntervalValue(nextInterval);
         setMilestoneEnabledValue(nextMilestoneEnabled);
         setAutostartEnabled(nextAutostart);
-        setProviders(nextProviders);
-
-        const nextApiKeyStatus: Record<string, boolean> = {};
-        for (const provider of nextProviders) {
-          if (provider.needs_api_key) {
-            nextApiKeyStatus[provider.id] = await getApiKeyExists(provider.id);
-          }
-        }
-        setApiKeyStatus(nextApiKeyStatus);
-        const [xiaohongshuStatus, wechatStatus] = await Promise.all([
-          getAdvancedProviderStatus("xiaohongshu"),
-          getAdvancedProviderStatus("wechat"),
-        ]);
-        setAdvancedStatus({ xiaohongshu: xiaohongshuStatus, wechat: wechatStatus });
-        setSettingsError(null);
       })
-      .catch((err) => {
-        setSettingsError(err instanceof Error ? err.message : String(err));
-      });
+      .catch((err) => setSettingsError(err instanceof Error ? err.message : String(err)));
   }, []);
 
-  const apiKeyProviders = useMemo(
-    () => providers.filter((provider) => provider.needs_api_key),
-    [providers]
-  );
-
-  const handleRemove = async (accountId: string) => {
-    try {
-      await removeAccount(accountId);
-      await refresh();
-      setSettingsError(null);
-    } catch (err) {
-      setSettingsError(err instanceof Error ? err.message : String(err));
-    }
-  };
-
-  const handleSaveApiKey = async (providerId: string) => {
-    const value =
-      providerId === "wechat"
-        ? JSON.stringify({
-            app_id: apiKeyInputs["wechat:app_id"]?.trim() ?? "",
-            app_secret: apiKeyInputs["wechat:app_secret"]?.trim() ?? "",
-          })
-        : apiKeyInputs[providerId]?.trim();
-    if (!value) {
-      return;
-    }
-
-    try {
-      await setApiKey(providerId, value);
-      setApiKeyInputs((current) =>
-        providerId === "wechat"
-          ? {
-              ...current,
-              "wechat:app_id": "",
-              "wechat:app_secret": "",
-            }
-          : { ...current, [providerId]: "" }
-      );
-      setApiKeyStatus((current) => ({ ...current, [providerId]: true }));
-      setSettingsError(null);
-    } catch (err) {
-      setSettingsError(err instanceof Error ? err.message : String(err));
-    }
-  };
-
-  const refreshAdvancedStatus = async (providerId: string) => {
-    const nextStatus = await getAdvancedProviderStatus(providerId);
-    setAdvancedStatus((current) => ({ ...current, [providerId]: nextStatus }));
-  };
-
   return (
-    <div className="flex h-full flex-col">
-      <header className="chrome-divider flex items-center justify-between border-b px-5 pb-4 pt-5">
-        <button
-          type="button"
-          onClick={onBack}
-          className="subtle-button rounded-full px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.18em] text-slate-700 transition hover:bg-white"
-        >
-          Back
-        </button>
-        <div className="text-center">
-          <div className="text-sm font-semibold text-slate-800">Settings</div>
-          <div className="caption-muted text-[11px] uppercase tracking-[0.24em]">
-            Preferences
-          </div>
+    <div className="screen-shell">
+      <header className="top-bar with-divider">
+        <div className="settings-header-left">
+          <button type="button" onClick={onBack} className="icon-button" aria-label="Back">
+            <svg viewBox="0 0 20 20" aria-hidden="true" className="h-4 w-4">
+              <path
+                d="M11.28 4.22a.75.75 0 0 1 0 1.06L6.56 10l4.72 4.72a.75.75 0 1 1-1.06 1.06l-5.25-5.25a.75.75 0 0 1 0-1.06l5.25-5.25a.75.75 0 0 1 1.06 0Z"
+                fill="currentColor"
+              />
+            </svg>
+          </button>
+          <div className="top-bar-title">{t("general")} {t("settings")}</div>
         </div>
-        <div className="w-[68px]" />
+        <button type="button" className="icon-button" aria-label={t("settings")}>
+          <svg viewBox="0 0 24 24" aria-hidden="true" className="h-4.5 w-4.5">
+            <path
+              d="M10.7 3.2h2.6l.4 2.1c.5.1 1 .3 1.4.6l1.9-1.1 1.8 1.8-1.1 1.9c.3.4.5.9.6 1.4l2.1.4v2.6l-2.1.4c-.1.5-.3 1-.6 1.4l1.1 1.9-1.8 1.8-1.9-1.1c-.4.3-.9.5-1.4.6l-.4 2.1h-2.6l-.4-2.1c-.5-.1-1-.3-1.4-.6l-1.9 1.1-1.8-1.8 1.1-1.9c-.3-.4-.5-.9-.6-1.4l-2.1-.4v-2.6l2.1-.4c.1-.5.3-1 .6-1.4L5.8 6.6l1.8-1.8 1.9 1.1c.4-.3.9-.5 1.4-.6Z"
+              fill="currentColor"
+            />
+            <circle cx="12" cy="12" r="3" fill="white" />
+          </svg>
+        </button>
       </header>
 
-      <div className="scroll-area flex-1 space-y-4 overflow-y-auto px-4 py-4">
-        {settingsError ? (
-          <div className="rounded-2xl border border-rose-200 bg-rose-50/85 px-4 py-3 text-xs text-rose-500">
-            {settingsError}
-          </div>
-        ) : null}
+      <main className="screen-content settings-content">
+        {settingsError ? <div className="error-banner">{settingsError}</div> : null}
 
-        <section className="panel-section rounded-[24px] p-4">
-          <div className="mb-3 flex items-center justify-between">
-            <div>
-              <h3 className="text-sm font-semibold text-slate-800">Accounts</h3>
-              <p className="mt-1 text-xs title-muted">Manage tracked profiles.</p>
-            </div>
-            <button
-              type="button"
-              onClick={() => setShowAdd(true)}
-              className="accent-button rounded-full px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.18em] transition hover:brightness-105"
-            >
-              Add
-            </button>
-          </div>
+        <section className="settings-section">
+          <div className="section-kicker">{t("general")}</div>
 
-          <div className="space-y-2">
-            {accounts.length === 0 ? (
-              <div className="rounded-2xl border border-dashed border-slate-200 px-4 py-5 text-xs title-muted">
-                No accounts configured yet.
+          <div className="settings-card">
+            <div className="settings-row">
+              <div className="settings-row-copy">
+                <div className="settings-row-title">{t("refresh_interval")}</div>
+                <div className="settings-row-subtitle">{t("refresh_interval_copy")}</div>
               </div>
-            ) : (
-              accounts.map((account) => (
-                <div
-                  key={account.id}
-                  className="list-row flex items-center justify-between rounded-2xl px-3 py-3"
+              <div className="settings-select-wrap">
+                <select
+                  value={interval}
+                  onChange={async (event) => {
+                    const minutes = Number(event.target.value);
+                    const previous = interval;
+                    setIntervalValue(minutes);
+                    try {
+                      await setRefreshInterval(minutes);
+                      setSettingsError(null);
+                    } catch (err) {
+                      setIntervalValue(previous);
+                      setSettingsError(err instanceof Error ? err.message : String(err));
+                    }
+                  }}
+                  className="settings-select"
                 >
-                  <div className="min-w-0">
-                    <div className="text-sm font-medium text-slate-800">
-                      {account.display_name ?? account.username}
-                    </div>
-                    <div className="text-xs title-muted">
-                      {account.provider} · {account.username}
-                    </div>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => void handleRemove(account.id)}
-                    className="text-xs text-rose-500 transition hover:text-rose-400"
-                  >
-                    Remove
-                  </button>
-                </div>
-              ))
-            )}
+                  {[5, 15, 30, 60].map((minutes) => (
+                    <option key={minutes} value={minutes}>
+                      {minutes < 60 ? `${minutes}m` : "1h"}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </div>
           </div>
+        </section>
 
-          {showAdd ? (
-            <div className="mt-4">
-              <AddAccount
-                onAdded={() => {
-                  setShowAdd(false);
-                  void refresh();
+        <section className="settings-section">
+          <div className="settings-card">
+            <div className="settings-row">
+              <div className="settings-row-copy">
+                <div className="settings-row-title">{t("notifications")}</div>
+                <div className="settings-row-subtitle">{t("notifications_copy")}</div>
+              </div>
+              <Toggle
+                enabled={milestoneEnabled}
+                onToggle={async () => {
+                  const nextValue = !milestoneEnabled;
+                  setMilestoneEnabledValue(nextValue);
+                  try {
+                    await setMilestoneEnabled(nextValue);
+                    setSettingsError(null);
+                  } catch (err) {
+                    setMilestoneEnabledValue(!nextValue);
+                    setSettingsError(err instanceof Error ? err.message : String(err));
+                  }
                 }}
-                onCancel={() => setShowAdd(false)}
               />
             </div>
-          ) : null}
-        </section>
 
-        <section className="panel-section rounded-[24px] p-4">
-          <h3 className="text-sm font-semibold text-slate-800">Refresh cadence</h3>
-          <p className="mt-1 text-xs title-muted">
-            Choose how frequently FollowBar checks follower counts.
-          </p>
+            <div className="settings-separator" />
 
-          <select
-            value={interval}
-            onChange={async (event) => {
-              const minutes = Number(event.target.value);
-              const previous = interval;
-              setIntervalValue(minutes);
-              try {
-                await setRefreshInterval(minutes);
-                setSettingsError(null);
-              } catch (err) {
-                setIntervalValue(previous);
-                setSettingsError(err instanceof Error ? err.message : String(err));
-              }
-            }}
-            className="soft-input mt-3 w-full rounded-2xl px-3 py-2.5 text-sm"
-          >
-            {[5, 15, 30, 60].map((minutes) => (
-              <option key={minutes} value={minutes}>
-                Every {minutes} minutes
-              </option>
-            ))}
-          </select>
-        </section>
-
-        {apiKeyProviders.length > 0 ? (
-          <section className="panel-section rounded-[24px] p-4">
-            <h3 className="text-sm font-semibold text-slate-800">Credentials</h3>
-            <p className="mt-1 text-xs title-muted">
-              Credentials are stored in the macOS Keychain, not SQLite.
-            </p>
-
-            <div className="mt-4 space-y-3">
-              {apiKeyProviders.map((provider) => (
-                <div key={provider.id} className="list-row rounded-2xl p-3">
-                  <div className="mb-2 flex items-center justify-between">
-                    <span className="text-sm text-slate-800">{provider.name}</span>
-                    <span className="caption-muted text-[11px] uppercase tracking-[0.18em]">
-                      {apiKeyStatus[provider.id] ? "Configured" : "Missing"}
-                    </span>
-                  </div>
-                  <p className="mb-2 text-xs title-muted">
-                    {provider.id === "x"
-                      ? "Bearer token"
-                      : provider.id === "wechat"
-                        ? "AppID and AppSecret"
-                        : "API key"}
-                  </p>
-                  {provider.id === "wechat" ? (
-                    <div className="space-y-2">
-                      <input
-                        type="password"
-                        value={apiKeyInputs["wechat:app_id"] ?? ""}
-                        onChange={(event) =>
-                          setApiKeyInputs((current) => ({
-                            ...current,
-                            "wechat:app_id": event.target.value,
-                          }))
-                        }
-                        placeholder="Paste AppID"
-                        className="soft-input min-w-0 w-full rounded-2xl px-3 py-2.5 text-sm"
-                      />
-                      <div className="flex gap-2">
-                        <input
-                          type="password"
-                          value={apiKeyInputs["wechat:app_secret"] ?? ""}
-                          onChange={(event) =>
-                            setApiKeyInputs((current) => ({
-                              ...current,
-                              "wechat:app_secret": event.target.value,
-                            }))
-                          }
-                          placeholder="Paste AppSecret"
-                          className="soft-input min-w-0 flex-1 rounded-2xl px-3 py-2.5 text-sm"
-                        />
-                        <button
-                          type="button"
-                          onClick={() => void handleSaveApiKey(provider.id)}
-                          className="subtle-button rounded-2xl px-3 py-2.5 text-sm font-medium text-slate-700 transition hover:bg-white"
-                        >
-                          Save
-                        </button>
-                      </div>
-                    </div>
-                  ) : (
-                    <div className="flex gap-2">
-                      <input
-                        type="password"
-                        value={apiKeyInputs[provider.id] ?? ""}
-                        onChange={(event) =>
-                          setApiKeyInputs((current) => ({
-                            ...current,
-                            [provider.id]: event.target.value,
-                          }))
-                        }
-                        placeholder={provider.id === "x" ? "Paste bearer token" : "Paste API key"}
-                        className="soft-input min-w-0 flex-1 rounded-2xl px-3 py-2.5 text-sm"
-                      />
-                      <button
-                        type="button"
-                        onClick={() => void handleSaveApiKey(provider.id)}
-                        className="subtle-button rounded-2xl px-3 py-2.5 text-sm font-medium text-slate-700 transition hover:bg-white"
-                      >
-                        Save
-                      </button>
-                    </div>
-                  )}
-                </div>
-              ))}
-            </div>
-          </section>
-        ) : null}
-
-        <section className="panel-section rounded-[24px] p-4">
-          <div className="mb-3">
-            <h3 className="text-sm font-semibold text-slate-800">Advanced providers</h3>
-            <p className="mt-1 text-xs title-muted">
-              Xiaohongshu and WeChat use a browser-assisted runtime. Install Chromium once, then connect each session locally on this Mac.
-            </p>
-          </div>
-
-          <div className="list-row rounded-2xl p-3">
-            <div className="mb-3 flex items-start justify-between gap-3">
-              <div>
-                <div className="text-sm font-medium text-slate-800">Xiaohongshu</div>
-                <div className="mt-1 text-xs title-muted">
-                  Status: {advancedStatus.xiaohongshu?.state ?? "checking"}
-                </div>
+            <div className="settings-row">
+              <div className="settings-row-copy">
+                <div className="settings-row-title">{t("launch_at_login")}</div>
+                <div className="settings-row-subtitle">{t("launch_at_login_copy")}</div>
               </div>
-              <div className="caption-muted text-[11px] uppercase tracking-[0.18em]">
-                {advancedStatus.xiaohongshu?.session_connected ? "Connected" : "Not Connected"}
-              </div>
-            </div>
-
-            <div className="flex gap-2">
-              <button
-                type="button"
-                disabled={busyProviderAction !== null}
-                onClick={async () => {
-                  setBusyProviderAction("xiaohongshu-install");
+              <Toggle
+                enabled={autostartEnabled}
+                onToggle={async () => {
+                  const nextValue = !autostartEnabled;
+                  setAutostartEnabled(nextValue);
                   try {
-                    const nextStatus = await installAdvancedProviderRuntime("xiaohongshu");
-                    setAdvancedStatus((current) => ({
-                      ...current,
-                      xiaohongshu: nextStatus,
-                    }));
+                    await setAutostart(nextValue);
                     setSettingsError(null);
                   } catch (err) {
+                    setAutostartEnabled(!nextValue);
                     setSettingsError(err instanceof Error ? err.message : String(err));
-                  } finally {
-                    setBusyProviderAction(null);
                   }
                 }}
-                className="subtle-button rounded-2xl px-3 py-2 text-sm text-slate-700 transition hover:bg-white disabled:cursor-not-allowed disabled:opacity-50"
-              >
-                Install runtime
-              </button>
-              <button
-                type="button"
-                disabled={busyProviderAction !== null}
-                onClick={async () => {
-                  setBusyProviderAction("xiaohongshu-connect");
-                  try {
-                    await connectAdvancedProvider("xiaohongshu");
-                    for (let attempt = 0; attempt < 30; attempt += 1) {
-                      await new Promise((resolve) => window.setTimeout(resolve, 2000));
-                      await refreshAdvancedStatus("xiaohongshu");
-                    }
-                    setSettingsError(null);
-                  } catch (err) {
-                    setSettingsError(err instanceof Error ? err.message : String(err));
-                  } finally {
-                    setBusyProviderAction(null);
-                  }
-                }}
-                className="accent-button rounded-2xl px-3 py-2 text-sm font-medium transition hover:brightness-105 disabled:cursor-not-allowed disabled:opacity-50"
-              >
-                Connect
-              </button>
+              />
             </div>
-          </div>
 
-          <div className="mt-3 list-row rounded-2xl p-3">
-            <div className="mb-3 flex items-start justify-between gap-3">
-              <div>
-                <div className="text-sm font-medium text-slate-800">WeChat Official Account</div>
-                <div className="mt-1 text-xs title-muted">
-                  Status: {advancedStatus.wechat?.state ?? "checking"}
-                </div>
+            <div className="settings-separator" />
+
+            <div className="settings-row">
+              <div className="settings-row-copy">
+                <div className="settings-row-title">{t("language")}</div>
+                <div className="settings-row-subtitle">{t("language_copy")}</div>
               </div>
-              <div className="caption-muted text-[11px] uppercase tracking-[0.18em]">
-                {advancedStatus.wechat?.session_connected ? "Connected" : "Not Connected"}
+              <div className="settings-select-wrap">
+                <select
+                  value={preference}
+                  onChange={(event) => setPreference(event.target.value as SupportedLocale)}
+                  className="settings-select"
+                >
+                  <option value="system">System</option>
+                  <option value="en">English</option>
+                  <option value="zh-CN">简体中文</option>
+                </select>
               </div>
             </div>
-
-            <div className="flex gap-2">
-              <button
-                type="button"
-                disabled={busyProviderAction !== null}
-                onClick={async () => {
-                  setBusyProviderAction("wechat-install");
-                  try {
-                    const nextStatus = await installAdvancedProviderRuntime("wechat");
-                    setAdvancedStatus((current) => ({
-                      ...current,
-                      wechat: nextStatus,
-                    }));
-                    setSettingsError(null);
-                  } catch (err) {
-                    setSettingsError(err instanceof Error ? err.message : String(err));
-                  } finally {
-                    setBusyProviderAction(null);
-                  }
-                }}
-                className="subtle-button rounded-2xl px-3 py-2 text-sm text-slate-700 transition hover:bg-white disabled:cursor-not-allowed disabled:opacity-50"
-              >
-                Install runtime
-              </button>
-              <button
-                type="button"
-                disabled={busyProviderAction !== null}
-                onClick={async () => {
-                  setBusyProviderAction("wechat-connect");
-                  try {
-                    await connectAdvancedProvider("wechat");
-                    for (let attempt = 0; attempt < 30; attempt += 1) {
-                      await new Promise((resolve) => window.setTimeout(resolve, 2000));
-                      await refreshAdvancedStatus("wechat");
-                    }
-                    setSettingsError(null);
-                  } catch (err) {
-                    setSettingsError(err instanceof Error ? err.message : String(err));
-                  } finally {
-                    setBusyProviderAction(null);
-                  }
-                }}
-                className="accent-button rounded-2xl px-3 py-2 text-sm font-medium transition hover:brightness-105 disabled:cursor-not-allowed disabled:opacity-50"
-              >
-                Connect
-              </button>
-            </div>
           </div>
         </section>
 
-        <section className="panel-section rounded-[24px] p-4">
-          <div className="flex items-center justify-between">
-            <div>
-              <h3 className="text-sm font-semibold text-slate-800">Milestone notifications</h3>
-              <p className="mt-1 text-xs title-muted">
-                Get a native macOS alert when a tracked account crosses a target.
-              </p>
+        <section className="settings-about refined">
+          <div className="about-mark">
+            <div className="brand-mark invert" aria-hidden="true">
+              <span className="brand-mark-bar brand-mark-bar-sm" />
+              <span className="brand-mark-bar brand-mark-bar-md" />
+              <span className="brand-mark-bar brand-mark-bar-lg" />
             </div>
-            <Toggle
-              enabled={milestoneEnabled}
-              onToggle={async () => {
-                const nextValue = !milestoneEnabled;
-                setMilestoneEnabledValue(nextValue);
-                try {
-                  await setMilestoneEnabled(nextValue);
-                  setSettingsError(null);
-                } catch (err) {
-                  setMilestoneEnabledValue(!nextValue);
-                  setSettingsError(err instanceof Error ? err.message : String(err));
-                }
-              }}
-            />
           </div>
+          <div className="text-[14px] font-semibold text-slate-800">FollowBar</div>
+          <div className="text-[12px] text-[#6f7882]">{t("minimal_global_settings")}</div>
         </section>
+      </main>
 
-        <section className="panel-section rounded-[24px] p-4">
-          <div className="flex items-center justify-between">
-            <div>
-              <h3 className="text-sm font-semibold text-slate-800">Auto-start on login</h3>
-              <p className="mt-1 text-xs title-muted">
-                Launch FollowBar automatically when you sign in to macOS.
-              </p>
-            </div>
-            <Toggle
-              enabled={autostartEnabled}
-              onToggle={async () => {
-                const nextValue = !autostartEnabled;
-                setAutostartEnabled(nextValue);
-                try {
-                  await setAutostart(nextValue);
-                  setSettingsError(null);
-                } catch (err) {
-                  setAutostartEnabled(!nextValue);
-                  setSettingsError(err instanceof Error ? err.message : String(err));
-                }
-              }}
-            />
-          </div>
-        </section>
-      </div>
+      <footer className="bottom-bar refined">
+        <div className="bottom-bar-caption">Last updated: Just now</div>
+        <div className="flex items-center gap-2">
+          <button type="button" onClick={onBack} className="primary-button compact">
+            {t("done")}
+          </button>
+        </div>
+      </footer>
     </div>
   );
 }

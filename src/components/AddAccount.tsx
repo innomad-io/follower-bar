@@ -3,9 +3,27 @@ import { addAccount, getAvailableProviders } from "../lib/commands";
 import type { ProviderInfo } from "../types";
 
 interface AddAccountProps {
-  onAdded: () => void;
+  onAdded: (accountId: string) => void;
   onCancel: () => void;
 }
+
+const PROVIDER_LABELS: Record<string, string> = {
+  x: "X",
+  youtube: "YouTube",
+  bilibili: "Bilibili",
+  xiaohongshu: "Xiaohongshu",
+  douyin: "Douyin",
+  wechat: "WeChat",
+};
+
+const PROVIDER_GLYPHS: Record<string, string> = {
+  x: "𝕏",
+  youtube: "▶",
+  bilibili: "◉",
+  xiaohongshu: "✦",
+  douyin: "♬",
+  wechat: "◔",
+};
 
 export function AddAccount({ onAdded, onCancel }: AddAccountProps) {
   const [providers, setProviders] = useState<ProviderInfo[]>([]);
@@ -17,21 +35,43 @@ export function AddAccount({ onAdded, onCancel }: AddAccountProps) {
   useEffect(() => {
     void getAvailableProviders()
       .then((availableProviders) => {
-        setProviders(availableProviders);
-        const firstSupported = availableProviders.find((item) => !item.coming_soon);
-        if (firstSupported) {
-          setProvider(firstSupported.id);
+        const supported = availableProviders.filter((item) => !item.coming_soon);
+        setProviders(supported);
+        if (supported[0]) {
+          setProvider(supported[0].id);
         }
       })
-      .catch((err) => {
-        setError(err instanceof Error ? err.message : String(err));
-      });
+      .catch((err) => setError(err instanceof Error ? err.message : String(err)));
   }, []);
 
   const selectedProvider = useMemo(
     () => providers.find((item) => item.id === provider) ?? null,
     [provider, providers]
   );
+
+  const placeholder =
+    selectedProvider?.id === "youtube"
+      ? "@channelhandle or youtube.com/@channelhandle"
+      : selectedProvider?.id === "bilibili"
+        ? "UID, nickname, or profile URL"
+      : selectedProvider?.id === "x"
+        ? "@username or x.com/username"
+      : selectedProvider?.id === "douyin"
+        ? "douyin.com/user/... URL or user ID"
+      : selectedProvider?.id === "xiaohongshu"
+        ? "user/profile URL or user ID"
+      : selectedProvider?.id === "wechat"
+        ? "公众号名称或备注标签"
+      : "Handle, username, or profile URL";
+
+  const helperText =
+    selectedProvider?.id === "x"
+      ? "You can add the account first. Provider method and optional token are configured on the account detail screen."
+      : selectedProvider?.id === "xiaohongshu"
+        ? "Add the account first, then connect browser-assisted mode from the account detail screen."
+      : selectedProvider?.id === "wechat"
+        ? "This account uses browser-assisted mode. Add it first, then connect WeChat from the account detail screen."
+        : "Add the account first. Platform-specific connection details appear on the account detail screen.";
 
   const handleSubmit = async () => {
     if (!provider || !username.trim()) {
@@ -41,8 +81,8 @@ export function AddAccount({ onAdded, onCancel }: AddAccountProps) {
     try {
       setSaving(true);
       setError(null);
-      await addAccount(provider, username.trim());
-      onAdded();
+      const accountId = await addAccount(provider, username.trim());
+      onAdded(accountId);
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err));
     } finally {
@@ -50,85 +90,86 @@ export function AddAccount({ onAdded, onCancel }: AddAccountProps) {
     }
   };
 
-  const placeholder =
-    selectedProvider?.id === "youtube"
-        ? "@channelhandle or youtube.com/@channelhandle"
-      : selectedProvider?.id === "bilibili"
-        ? "UID, nickname, or space.bilibili.com/... URL"
-        : selectedProvider?.id === "x"
-          ? "@username or x.com/username"
-        : selectedProvider?.id === "douyin"
-          ? "douyin.com/user/... URL or user ID"
-        : selectedProvider?.id === "xiaohongshu"
-            ? "user/profile URL or user ID"
-          : selectedProvider?.id === "wechat"
-            ? "公众号名称或备注标签"
-          : "Handle, username, or profile URL";
-
   return (
-    <section className="panel-section rounded-[24px] p-4">
-      <div className="mb-4">
-        <h3 className="text-sm font-semibold text-slate-800">Add account</h3>
-        <p className="mt-1 text-xs title-muted">
-          Add a public handle or profile URL. FollowBar will resolve the official nickname when possible.
-        </p>
-      </div>
-
-      <div className="space-y-3">
-        <select
-          value={provider}
-          onChange={(event) => setProvider(event.target.value)}
-          className="soft-input w-full rounded-2xl px-3 py-2.5 text-sm"
+    <div className="screen-shell add-flow-shell">
+      <header className="top-bar with-divider">
+        <button type="button" onClick={onCancel} className="text-[13px] font-medium text-[#2364e6]">
+          Cancel
+        </button>
+        <div className="top-bar-title centered">Add Account</div>
+        <button
+          type="button"
+          onClick={() => void handleSubmit()}
+          disabled={saving || !provider || !username.trim()}
+          className="text-[13px] font-medium text-[#2364e6] disabled:text-[#b7c0ca]"
         >
-          {providers.map((item) => (
-            <option key={item.id} value={item.id} disabled={item.coming_soon}>
-              {item.name}{item.coming_soon ? " (Coming Soon)" : ""}
-            </option>
-          ))}
-        </select>
+          Next
+        </button>
+      </header>
 
-        <input
-          value={username}
-          onChange={(event) => setUsername(event.target.value)}
-          onKeyDown={(event) => {
-            if (event.key === "Enter") {
-              void handleSubmit();
-            }
-          }}
-          placeholder={placeholder}
-          className="soft-input w-full rounded-2xl px-3 py-2.5 text-sm"
-        />
-
-        {selectedProvider?.needs_api_key ? (
-          <p className="text-xs text-fuchsia-500">
-            {selectedProvider.id === "x"
-              ? "A bearer token is optional. If it is missing, FollowBar will fall back to the public X profile page."
-              : selectedProvider.id === "wechat"
-                ? "微信公众号现在使用浏览器辅助模式。先在设置页里安装 runtime 并连接公众号后台，这里输入的只是显示名称。"
-              : "An API key is optional. If it is missing, FollowBar will fall back to the public profile page when possible."}
-          </p>
-        ) : null}
-
-        {error ? <p className="text-xs text-rose-500">{error}</p> : null}
-
-        <div className="flex gap-2">
-          <button
-            type="button"
-            onClick={() => void handleSubmit()}
-            disabled={saving || !provider || !username.trim()}
-            className="accent-button flex-1 rounded-2xl px-3 py-2.5 text-sm font-medium transition hover:brightness-105 disabled:cursor-not-allowed disabled:opacity-50"
-          >
-            {saving ? "Adding..." : "Add account"}
-          </button>
-          <button
-            type="button"
-            onClick={onCancel}
-            className="subtle-button rounded-2xl px-3 py-2.5 text-sm text-slate-700 transition hover:bg-white"
-          >
-            Cancel
-          </button>
-        </div>
+      <div className="progress-track">
+        <div className="progress-fill" />
       </div>
-    </section>
+
+      <main className="screen-content add-flow-content">
+        <section className="mb-5">
+          <div className="mb-1 text-[20px] font-bold tracking-[-0.04em] text-slate-900">
+            Choose Platform
+          </div>
+          <p className="text-[13px] leading-5 text-[#6f7882]">
+            Select the platform first. FollowBar will show the right provider options after the account is added.
+          </p>
+        </section>
+
+        <div className="platform-grid">
+          {providers.map((item) => {
+            const selected = item.id === provider;
+            return (
+              <button
+                key={item.id}
+                type="button"
+                onClick={() => setProvider(item.id)}
+                className={`platform-card ${selected ? "selected" : ""}`}
+              >
+                <div className="platform-card-icon">{PROVIDER_GLYPHS[item.id] ?? "•"}</div>
+                <div className="platform-card-label">{PROVIDER_LABELS[item.id] ?? item.name}</div>
+              </button>
+            );
+          })}
+        </div>
+
+        <div className="mt-6">
+          <div className="mb-2 pl-1 text-[11px] font-bold uppercase tracking-[0.16em] text-[#7d8690]">
+            Account Identifier
+          </div>
+          <input
+            value={username}
+            onChange={(event) => setUsername(event.target.value)}
+            onKeyDown={(event) => {
+              if (event.key === "Enter") {
+                void handleSubmit();
+              }
+            }}
+            placeholder={placeholder}
+            className="sheet-input"
+          />
+          <p className="mt-3 text-[12px] leading-5 text-[#6f7882]">{helperText}</p>
+        </div>
+
+        {error ? <div className="error-banner mt-4">{error}</div> : null}
+      </main>
+
+      <footer className="bottom-bar">
+        <div className="bottom-bar-caption">Next: provider method</div>
+        <button
+          type="button"
+          onClick={() => void handleSubmit()}
+          disabled={saving || !provider || !username.trim()}
+          className="primary-button"
+        >
+          {saving ? "Adding..." : "Continue"}
+        </button>
+      </footer>
+    </div>
   );
 }

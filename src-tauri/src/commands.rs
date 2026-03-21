@@ -284,6 +284,29 @@ pub fn remove_account(state: State<'_, AppState>, account_id: String) -> Result<
 }
 
 #[tauri::command]
+pub fn update_account(
+    state: State<'_, AppState>,
+    account_id: String,
+    username: String,
+    display_name: Option<String>,
+) -> Result<(), String> {
+    let trimmed_username = username.trim();
+    if trimmed_username.is_empty() {
+        return Err("Account identifier cannot be empty".to_string());
+    }
+
+    let trimmed_display_name = display_name
+        .as_deref()
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .map(str::to_string);
+
+    let db = state.db.lock().map_err(|err| err.to_string())?;
+    db.update_account_identity(&account_id, trimmed_username, trimmed_display_name.as_deref())
+        .map_err(|err| err.to_string())
+}
+
+#[tauri::command]
 pub fn get_snapshots_7d(
     state: State<'_, AppState>,
     account_id: String,

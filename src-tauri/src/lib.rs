@@ -203,6 +203,7 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             commands::list_accounts,
             commands::add_account,
+            commands::update_account,
             commands::remove_account,
             commands::get_snapshots_7d,
             commands::get_available_providers,

@@ -19,6 +19,14 @@ export function addAccount(provider: string, username: string): Promise<string> 
   return invoke("add_account", { provider, username });
 }
 
+export function updateAccount(
+  accountId: string,
+  username: string,
+  displayName: string | null
+): Promise<void> {
+  return invoke("update_account", { accountId, username, displayName });
+}
+
 export function removeAccount(accountId: string): Promise<void> {
   return invoke("remove_account", { accountId });
 }

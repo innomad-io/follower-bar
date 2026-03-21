@@ -1,6 +1,28 @@
-import { useMemo, useState } from "react";
+import { useState } from "react";
+import { connectAdvancedProvider, refreshAll, verifyXiaohongshuAccount } from "../lib/commands";
+import { useI18n } from "../lib/i18n";
 import type { AccountWithStats } from "../types";
 import { MiniChart } from "./MiniChart";
+
+function formatFollowers(followers: number | null) {
+  if (followers === null) {
+    return "—";
+  }
+  if (followers < 10_000) {
+    return Intl.NumberFormat("en").format(followers);
+  }
+  return Intl.NumberFormat("en", {
+    notation: "compact",
+    maximumFractionDigits: followers >= 100_000 ? 1 : 0,
+  }).format(followers);
+}
+
+function formatDelta(delta: number | null) {
+  if (delta === null) {
+    return "+0";
+  }
+  return `${delta >= 0 ? "+" : ""}${Intl.NumberFormat("en").format(delta)}`;
+}
 
 const PROVIDER_FAVICONS: Record<string, string> = {
   youtube: "https://www.youtube.com/favicon.ico",
@@ -11,35 +33,13 @@ const PROVIDER_FAVICONS: Record<string, string> = {
   douyin: "https://www.douyin.com/favicon.ico",
 };
 
-function formatChange(change: number | null) {
-  if (change === null) {
-    return null;
+function ProviderLogo({ provider }: { provider: string }) {
+  const favicon = PROVIDER_FAVICONS[provider];
+  if (!favicon) {
+    return <span className="provider-badge-fallback">{providerLabel(provider).slice(0, 1)}</span>;
   }
 
-  const prefix = change >= 0 ? "+" : "-";
-  const formatted = Intl.NumberFormat("en", {
-    notation: "compact",
-    maximumFractionDigits: 1,
-  })
-    .format(Math.abs(change))
-    .toLowerCase();
-
-  return `${prefix}${formatted} today`;
-}
-
-function formatFollowers(followers: number | null) {
-  if (followers === null) {
-    return "—";
-  }
-
-  if (followers < 10_000) {
-    return Intl.NumberFormat("en").format(followers);
-  }
-
-  return Intl.NumberFormat("en", {
-    notation: "compact",
-    maximumFractionDigits: followers >= 100_000 ? 1 : 0,
-  }).format(followers);
+  return <img src={favicon} alt="" className="provider-logo-image" />;
 }
 
 function providerLabel(provider: string) {
@@ -50,120 +50,144 @@ function providerLabel(provider: string) {
       return "YouTube";
     case "bilibili":
       return "Bilibili";
-    case "wechat":
-      return "WeChat";
     case "xiaohongshu":
       return "Xiaohongshu";
     case "douyin":
       return "Douyin";
+    case "wechat":
+      return "WeChat";
     default:
       return provider;
   }
 }
 
-function ProviderBadge({ provider }: { provider: string }) {
-  const favicon = PROVIDER_FAVICONS[provider];
-
-  return (
-    <div className="provider-badge">
-      {favicon ? (
-        <img src={favicon} alt="" className="h-5 w-5 rounded-[4px]" />
-      ) : (
-        <span className="provider-badge-fallback">{providerLabel(provider).slice(0, 1)}</span>
-      )}
-    </div>
-  );
-}
-
-interface AccountRowProps {
+export function AccountRow({
+  account,
+  expanded,
+  onToggleExpand,
+  onOpenEdit,
+  onRefreshList,
+}: {
   account: AccountWithStats;
-  onVerifyInBrowser?: (account: AccountWithStats) => void;
-}
+  expanded: boolean;
+  onToggleExpand: () => void;
+  onOpenEdit: () => void;
+  onRefreshList: () => Promise<void>;
+}) {
+  const { t } = useI18n();
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
-export function AccountRow({ account, onVerifyInBrowser }: AccountRowProps) {
-  const [expanded, setExpanded] = useState(false);
-  const changeLabel = formatChange(account.today_change);
-  const displayName = account.display_name?.trim() || account.username;
-
-  const changeClassName = useMemo(() => {
-    if (account.today_change === null) {
-      return "caption-muted";
+  const triggerRefresh = async () => {
+    setBusy(true);
+    setError(null);
+    try {
+      await refreshAll();
+      await onRefreshList();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err));
+    } finally {
+      setBusy(false);
     }
+  };
 
-    return account.today_change >= 0 ? "status-good" : "status-bad";
-  }, [account.today_change]);
-
-  const providerStatusLabel =
-    account.provider_state === "challenge_required"
-      ? account.provider_message ?? "Manual verification required"
-      : null;
+  const handleVerify = async () => {
+    setBusy(true);
+    setError(null);
+    try {
+      await verifyXiaohongshuAccount(account.id);
+      await onRefreshList();
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      setError(message);
+      if (
+        message.includes("Xiaohongshu") &&
+        window.confirm("Open a visible browser window to complete Xiaohongshu verification?")
+      ) {
+        await connectAdvancedProvider("xiaohongshu");
+      }
+    } finally {
+      setBusy(false);
+    }
+  };
 
   return (
-    <article className="account-row overflow-hidden transition">
-      <div
-        role="button"
-        tabIndex={0}
-        onClick={() => setExpanded((value) => !value)}
-        onKeyDown={(event) => {
-          if (event.key === "Enter" || event.key === " ") {
-            event.preventDefault();
-            setExpanded((value) => !value);
-          }
-        }}
-        className="flex w-full cursor-pointer items-center justify-between gap-3 px-6 py-4 text-left transition"
-      >
-        <div className="flex min-w-0 items-center gap-4">
-          <ProviderBadge provider={account.provider} />
-          <div className="min-w-0">
-            <div className="truncate text-[15px] font-semibold tracking-[-0.03em] text-slate-800">
-              {displayName}
+    <div className={`account-row ${expanded ? "expanded" : ""}`}>
+      <div className="account-row-main">
+        <button
+          type="button"
+          className="account-row-button"
+          onClick={() => {
+            onToggleExpand();
+            if (!expanded) {
+              void triggerRefresh();
+            }
+          }}
+        >
+          <div className="account-row-leading">
+            <div className="account-avatar">
+              <ProviderLogo provider={account.provider} />
             </div>
-            <div className="mt-0.5 text-[11px] font-medium title-muted">
-              {providerLabel(account.provider)}
-            </div>
-          </div>
-        </div>
-
-        <div className="w-[96px] shrink-0 pl-2 text-right">
-          <div className="text-[15px] font-semibold tracking-[-0.03em] text-slate-800">
-            {formatFollowers(account.followers)}
-          </div>
-          {providerStatusLabel ? (
-            <>
-              <div className="mt-0.5 text-[10px] font-semibold text-amber-700">
-                Verification needed
+            <div className="account-row-copy">
+              <div className="account-row-title">
+                {account.display_name?.trim() || account.username}
               </div>
-              {account.can_verify_in_browser ? (
-                <button
-                  type="button"
-                  onClick={(event) => {
-                    event.stopPropagation();
-                    onVerifyInBrowser?.(account);
-                  }}
-                  className="mt-1 rounded-full bg-amber-50 px-2.5 py-1 text-[10px] font-medium text-amber-700 transition hover:bg-amber-100"
-                >
-                  Verify
-                </button>
-              ) : null}
-            </>
-          ) : (
-            <div className={`mt-0.5 text-[10px] font-semibold ${changeClassName}`}>
-              {changeLabel ?? "Waiting for first refresh"}
+              <div className="account-row-subtitle">{providerLabel(account.provider)}</div>
             </div>
-          )}
-        </div>
+          </div>
+
+          <div className="account-row-trailing">
+            <div className="account-row-metric">{formatFollowers(account.followers)}</div>
+            <div className="account-row-delta">
+              {formatDelta(account.today_change)} {t("today").toLowerCase()}
+            </div>
+          </div>
+        </button>
+
+        <button
+          type="button"
+          className="row-action-button"
+          aria-label="Edit account"
+          onClick={onOpenEdit}
+        >
+          <svg viewBox="0 0 20 20" aria-hidden="true" className="h-4 w-4">
+            <path
+              d="M5 10a1.2 1.2 0 1 0 0 2.4A1.2 1.2 0 0 0 5 10Zm5 0a1.2 1.2 0 1 0 0 2.4A1.2 1.2 0 0 0 10 10Zm5 0a1.2 1.2 0 1 0 0 2.4A1.2 1.2 0 0 0 15 10Z"
+              fill="currentColor"
+            />
+          </svg>
+        </button>
       </div>
 
       {expanded ? (
-        <div className="border-t border-[#eceef4] px-6 pb-4 pt-3">
-          {providerStatusLabel ? (
-            <div className="mb-3 rounded-2xl border border-amber-200 bg-amber-50/90 px-3 py-2 text-xs text-amber-700">
-              <div>{providerStatusLabel}</div>
+        <div className="account-row-expanded">
+          <div className="account-row-expanded-actions">
+            <span className="expansion-kicker">7D Growth</span>
+            <div className="expansion-actions-right">
+              {account.can_verify_in_browser ? (
+                <button type="button" className="ghost-button compact" onClick={() => void handleVerify()}>
+                  {busy ? "Verifying..." : "Verify"}
+                </button>
+              ) : (
+                <button type="button" className="ghost-button compact" onClick={() => void triggerRefresh()}>
+                  {busy ? "Refreshing..." : t("refresh")}
+                </button>
+              )}
+              <span className="expansion-meta">
+                {account.today_change === null
+                  ? t("waiting_first_refresh")
+                  : `Avg. ${formatDelta(account.today_change)}/day`}
+              </span>
             </div>
+          </div>
+
+          {account.provider_message ? (
+            <div className="inline-hint">{account.provider_message}</div>
           ) : null}
+          {error ? <div className="error-banner">{error}</div> : null}
           <MiniChart accountId={account.id} />
         </div>
       ) : null}
-    </article>
+    </div>
   );
 }

@@ -2,13 +2,16 @@ import { useEffect, useState } from "react";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { AccountList } from "./components/AccountList";
 import { Settings } from "./components/Settings";
+import { AddAccount } from "./components/AddAccount";
+import { AccountDetail } from "./components/AccountDetail";
 
-type View = "list" | "settings";
+type View = "list" | "settings" | "add-account" | "account-detail";
 type MotionState = "idle" | "opening" | "closing";
 
 export default function App() {
   const [view, setView] = useState<View>("list");
   const [motionState, setMotionState] = useState<MotionState>("idle");
+  const [selectedAccountId, setSelectedAccountId] = useState<string | null>(null);
 
   useEffect(() => {
     const currentWindow = getCurrentWindow();
@@ -63,12 +66,38 @@ export default function App() {
             : ""
       }`}
     >
-      <div className="popover-panel h-[420px] w-[376px] overflow-hidden rounded-[20px]">
+      <div className="popover-panel h-[420px] w-[376px] overflow-hidden rounded-[10px]">
         {view === "list" ? (
-          <AccountList onOpenSettings={() => setView("settings")} />
-        ) : (
+          <AccountList
+            onOpenSettings={() => setView("settings")}
+            onOpenAddAccount={() => setView("add-account")}
+            onOpenAccount={(accountId) => {
+              setSelectedAccountId(accountId);
+              setView("account-detail");
+            }}
+          />
+        ) : null}
+
+        {view === "settings" ? (
           <Settings onBack={() => setView("list")} />
-        )}
+        ) : null}
+
+        {view === "add-account" ? (
+          <AddAccount
+            onCancel={() => setView("list")}
+            onAdded={(accountId) => {
+              setSelectedAccountId(accountId);
+              setView("list");
+            }}
+          />
+        ) : null}
+
+        {view === "account-detail" && selectedAccountId ? (
+          <AccountDetail
+            accountId={selectedAccountId}
+            onBack={() => setView("list")}
+          />
+        ) : null}
       </div>
     </main>
   );

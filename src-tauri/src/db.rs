@@ -136,6 +136,21 @@ impl Database {
         Ok(())
     }
 
+    pub fn update_account_identity(
+        &self,
+        id: &str,
+        username: &str,
+        display_name: Option<&str>,
+    ) -> Result<()> {
+        self.conn.execute(
+            "UPDATE accounts
+             SET username = ?2, display_name = ?3, resolved_id = NULL
+             WHERE id = ?1",
+            params![id, username, display_name],
+        )?;
+        Ok(())
+    }
+
     pub fn update_account_config(&self, id: &str, config: Option<&str>) -> Result<()> {
         self.conn.execute(
             "UPDATE accounts
@@ -494,6 +509,21 @@ mod tests {
         assert_eq!(account.username, "@design");
         assert_eq!(account.resolved_id.as_deref(), Some("UC123"));
         assert_eq!(account.display_name.as_deref(), Some("Design Theory"));
+    }
+
+    #[test]
+    fn test_update_account_identity_resets_resolved_id() {
+        let db = test_db();
+        db.add_account("acc1", "x", "@old", Some("old_id"), Some("Old Name"), None)
+            .unwrap();
+
+        db.update_account_identity("acc1", "@new", Some("New Name"))
+            .unwrap();
+
+        let account = db.list_accounts().unwrap().remove(0);
+        assert_eq!(account.username, "@new");
+        assert_eq!(account.display_name.as_deref(), Some("New Name"));
+        assert_eq!(account.resolved_id, None);
     }
 
     #[test]
