@@ -13,6 +13,7 @@ env:
   APP_NAME: FollowerBar
   HOMEBREW_CASK_NAME: followerbar
   HOMEBREW_TAP_REPOSITORY: innomad-io/homebrew-tap
+  RELEASES_REPOSITORY: innomad-io/followerbar-releases
 
 jobs:
   build-macos:
@@ -71,7 +72,10 @@ jobs:
 
       - name: Upload release assets
         uses: softprops/action-gh-release@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.RELEASES_REPO_TOKEN }}
         with:
+          repository: ${{ env.RELEASES_REPOSITORY }}
           tag_name: ${{ github.ref_name }}
           name: FollowerBar ${{ github.ref_name }}
           generate_release_notes: true
@@ -101,8 +105,9 @@ jobs:
 
       - name: Generate Homebrew cask
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.RELEASES_REPO_TOKEN }}
           RELEASE_TAG: ${{ github.ref_name }}
+          RELEASES_REPOSITORY: ${{ env.RELEASES_REPOSITORY }}
           TAP_DIR: .tap
           PRODUCT_NAME: ${{ env.APP_NAME }}
           HOMEBREW_CASK_NAME: ${{ env.HOMEBREW_CASK_NAME }}
