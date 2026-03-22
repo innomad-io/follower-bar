@@ -332,16 +332,22 @@ export function AccountDetail({
               <button
                 type="button"
                 className="danger-button"
+                disabled={busyAction === "remove-account"}
                 onClick={async () => {
-                  if (!window.confirm("Remove this account?")) {
-                    return;
+                  setBusyAction("remove-account");
+                  setMessage(null);
+                  try {
+                    await removeAccount(account.id);
+                    await refresh();
+                    onBack();
+                  } catch (err) {
+                    setMessage(err instanceof Error ? err.message : String(err));
+                  } finally {
+                    setBusyAction(null);
                   }
-                  await removeAccount(account.id);
-                  await refresh();
-                  onBack();
                 }}
               >
-                Remove
+                {busyAction === "remove-account" ? "Removing..." : "Remove"}
               </button>
             </div>
           </div>
