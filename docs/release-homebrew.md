@@ -105,6 +105,8 @@ Optional for signed and notarized macOS builds:
 
 The workflow can build without these Apple secrets, but macOS may flag downloaded apps as damaged or untrusted. With these secrets configured, the Tauri build step can sign and notarize the app during release builds.
 
+If the Apple signing secrets are missing, the release workflow now automatically falls back to an unsigned build instead of failing.
+
 ## Expected tap repository
 
 Default tap repository in the workflow:
