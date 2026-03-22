@@ -55,6 +55,7 @@ pub struct AccountWithStats {
     pub provider_state: Option<String>,
     pub provider_message: Option<String>,
     pub can_verify_in_browser: bool,
+    pub provider_method: String,
 }
 
 #[derive(Debug, Serialize)]
@@ -203,6 +204,7 @@ pub fn list_accounts(state: State<'_, AppState>) -> Result<Vec<AccountWithStats>
             provider_message: config.provider_message.clone(),
             can_verify_in_browser: account.provider == "xiaohongshu"
                 && config.provider_state.as_deref() == Some("challenge_required"),
+            provider_method: config.provider_method_for(&account.provider),
         });
     }
 
@@ -289,6 +291,7 @@ pub fn update_account(
     account_id: String,
     username: String,
     display_name: Option<String>,
+    provider_method: Option<String>,
 ) -> Result<(), String> {
     let trimmed_username = username.trim();
     if trimmed_username.is_empty() {
@@ -302,7 +305,18 @@ pub fn update_account(
         .map(str::to_string);
 
     let db = state.db.lock().map_err(|err| err.to_string())?;
+    let account = db
+        .list_accounts()
+        .map_err(|err| err.to_string())?
+        .into_iter()
+        .find(|item| item.id == account_id)
+        .ok_or_else(|| "Account not found".to_string())?;
     db.update_account_identity(&account_id, trimmed_username, trimmed_display_name.as_deref())
+        .map_err(|err| err.to_string())?;
+
+    let mut config = AccountConfig::from_json(account.config.as_deref());
+    config.provider_method = provider_method;
+    db.update_account_config(&account_id, config.to_json().as_deref())
         .map_err(|err| err.to_string())
 }
 
@@ -350,6 +364,7 @@ pub async fn do_refresh_all(
             continue;
         };
         let mut account_config = AccountConfig::from_json(account.config.as_deref());
+        let provider_method = account_config.provider_method_for(&account.provider);
 
         if account.provider == "xiaohongshu" && account_config.should_skip_xiaohongshu_refresh() {
             failed_accounts.push(format!(
@@ -375,12 +390,28 @@ pub async fn do_refresh_all(
         } else if account.provider == "douyin" {
             advanced_runtime::fetch_douyin_profile(app, fetch_target)
         } else if account.provider == "x" {
-            let api_key = keychain::get_api_key(&account.provider)
-                .map_err(|err| err.to_string())?;
-            if let Some(token) = api_key.as_deref() {
-                provider.fetch(fetch_target, Some(token)).await
-            } else {
-                advanced_runtime::fetch_x_profile(app, fetch_target)
+            match provider_method.as_str() {
+                "official_api" => {
+                    let api_key = keychain::get_api_key(&account.provider)
+                        .map_err(|err| err.to_string())?;
+                    let token = api_key
+                        .as_deref()
+                        .ok_or_else(|| "X official API requires a bearer token".to_string())?;
+                    provider.fetch(fetch_target, Some(token)).await
+                }
+                _ => advanced_runtime::fetch_x_profile(app, fetch_target),
+            }
+        } else if account.provider == "youtube" {
+            match provider_method.as_str() {
+                "official_api" => {
+                    let api_key = keychain::get_api_key(&account.provider)
+                        .map_err(|err| err.to_string())?;
+                    let key = api_key
+                        .as_deref()
+                        .ok_or_else(|| "YouTube official API requires an API key".to_string())?;
+                    provider.fetch(fetch_target, Some(key)).await
+                }
+                _ => provider.fetch(fetch_target, None).await,
             }
         } else {
             let api_key = if provider.needs_api_key() {

@@ -13,6 +13,15 @@ import {
 } from "../lib/commands";
 import type { AdvancedProviderStatus } from "../types";
 
+type ProviderMethod = "public_page" | "official_api" | "browser_link";
+
+interface ProviderOption {
+  id: ProviderMethod;
+  label: string;
+  icon: string;
+  description: string;
+}
+
 function providerName(provider: string) {
   switch (provider) {
     case "x":
@@ -32,23 +41,82 @@ function providerName(provider: string) {
   }
 }
 
-function providerIcon(provider: string) {
+function providerMethodOptions(provider: string): ProviderOption[] {
   switch (provider) {
     case "x":
-      return "𝕏";
     case "youtube":
-      return "▶";
+      return [
+        {
+          id: "public_page",
+          label: "Public Page",
+          icon: "◌",
+          description:
+            "Monitor from the public profile page. No API quota required.",
+        },
+        {
+          id: "official_api",
+          label: "Official API",
+          icon: "◇",
+          description:
+            "Use the platform API with your own credential for more reliable fetches.",
+        },
+      ];
     case "bilibili":
-      return "◉";
-    case "wechat":
-      return "◔";
-    case "xiaohongshu":
-      return "✦";
     case "douyin":
-      return "♬";
+      return [
+        {
+          id: "public_page",
+          label: "Public Page",
+          icon: "◌",
+          description: "Fetch from the public profile page.",
+        },
+      ];
+    case "xiaohongshu":
+    case "wechat":
+      return [
+        {
+          id: "browser_link",
+          label: "Browser Link",
+          icon: "↗",
+          description:
+            "Use the browser-assisted runtime and session managed on this Mac.",
+        },
+      ];
     default:
-      return "•";
+      return [
+        {
+          id: "public_page",
+          label: "Public Page",
+          icon: "◌",
+          description: "Fetch from the public profile page.",
+        },
+      ];
   }
+}
+
+function providerMethodDescription(provider: string, method: ProviderMethod) {
+  const option = providerMethodOptions(provider).find((item) => item.id === method);
+  return option?.description ?? "";
+}
+
+function providerStatusCopy(status: AdvancedProviderStatus | null) {
+  if (!status) {
+    return "Provider actions are not required for this method.";
+  }
+
+  if (!status.runtime_installed) {
+    return "Runtime is not installed yet.";
+  }
+
+  if (!status.browser_installed) {
+    return "Browser runtime is missing.";
+  }
+
+  if (!status.session_connected) {
+    return "Browser session is not connected.";
+  }
+
+  return "Runtime is ready.";
 }
 
 export function AccountDetail({
@@ -66,8 +134,9 @@ export function AccountDetail({
   );
   const [displayName, setDisplayName] = useState("");
   const [username, setUsername] = useState("");
-  const [xTokenInput, setXTokenInput] = useState("");
-  const [xTokenExists, setXTokenExists] = useState(false);
+  const [providerMethod, setProviderMethod] = useState<ProviderMethod>("public_page");
+  const [tokenInput, setTokenInput] = useState("");
+  const [apiKeyExists, setApiKeyExists] = useState(false);
   const [advancedStatus, setAdvancedStatus] = useState<AdvancedProviderStatus | null>(null);
   const [busyAction, setBusyAction] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
@@ -76,17 +145,18 @@ export function AccountDetail({
     if (!account) {
       return;
     }
+
     setDisplayName(account.display_name ?? "");
     setUsername(account.username);
+    setProviderMethod(account.provider_method as ProviderMethod);
+    setTokenInput("");
     setMessage(null);
 
     void (async () => {
       try {
-        if (account.provider === "x") {
-          setXTokenExists(await getApiKeyExists("x"));
-        } else {
-          setXTokenExists(false);
-        }
+        const supportsApi = account.provider === "x" || account.provider === "youtube";
+        setApiKeyExists(supportsApi ? await getApiKeyExists(account.provider) : false);
+
         if (account.provider === "xiaohongshu" || account.provider === "wechat") {
           setAdvancedStatus(await getAdvancedProviderStatus(account.provider));
         } else {
@@ -102,7 +172,7 @@ export function AccountDetail({
     return (
       <div className="screen-shell">
         <header className="top-bar with-divider">
-          <button type="button" onClick={onBack} className="ghost-button">
+          <button type="button" onClick={onBack} className="ghost-button compact">
             Back
           </button>
           <div className="detail-header-copy">
@@ -124,9 +194,14 @@ export function AccountDetail({
     setBusyAction("save-profile");
     setMessage(null);
     try {
-      await updateAccount(account.id, username.trim(), displayName.trim() || null);
+      await updateAccount(
+        account.id,
+        username.trim(),
+        displayName.trim() || null,
+        providerMethod
+      );
       await refresh();
-      setMessage("Saved");
+      onBack();
     } catch (err) {
       setMessage(err instanceof Error ? err.message : String(err));
     } finally {
@@ -134,10 +209,13 @@ export function AccountDetail({
     }
   };
 
+  const supportsApiCredential = account.provider === "x" || account.provider === "youtube";
+  const supportsBrowserLink = account.provider === "xiaohongshu" || account.provider === "wechat";
+
   return (
     <div className="screen-shell">
       <header className="top-bar with-divider">
-        <button type="button" onClick={onBack} className="ghost-button">
+        <button type="button" onClick={onBack} className="ghost-button compact">
           Back
         </button>
         <div className="detail-header-copy">
@@ -163,7 +241,7 @@ export function AccountDetail({
           <div className="section-kicker">Basic Info</div>
           <div className="settings-card stacked-form">
             <label className="field-label">
-              <span>Display name</span>
+              <span>Display Name</span>
               <input
                 value={displayName}
                 onChange={(event) => setDisplayName(event.target.value)}
@@ -172,7 +250,7 @@ export function AccountDetail({
               />
             </label>
             <label className="field-label">
-              <span>Account identifier</span>
+              <span>Account Identifier / URL</span>
               <input
                 value={username}
                 onChange={(event) => setUsername(event.target.value)}
@@ -183,42 +261,79 @@ export function AccountDetail({
           </div>
         </section>
 
-        {account.provider === "x" ? (
-          <section className="settings-section">
-            <div className="section-kicker">Connection &amp; Provider</div>
-            <div className="settings-card stacked-form">
-              <div className="provider-line">
-                <div>
-                  <div className="settings-row-title">Public page</div>
-                  <div className="settings-row-subtitle">
-                    Default mode. Anonymous browser-assisted fetch from the public X profile.
-                  </div>
-                </div>
+        <section className="settings-section">
+          <div className="section-kicker">Connection &amp; Provider</div>
+          <div className="provider-method-grid">
+            {providerMethodOptions(account.provider).map((option) => (
+              <button
+                key={option.id}
+                type="button"
+                className={`provider-method-button ${
+                  providerMethod === option.id ? "selected" : ""
+                }`}
+                onClick={() => setProviderMethod(option.id)}
+              >
+                <span className="provider-method-icon" aria-hidden="true">
+                  {option.icon}
+                </span>
+                <span className="provider-method-label">{option.label}</span>
+              </button>
+            ))}
+          </div>
+          <p className="provider-method-copy">
+            {providerMethodDescription(account.provider, providerMethod)}
+          </p>
+        </section>
+
+        <section className="settings-section">
+          <div className="provider-actions-header">
+            <div className="section-kicker no-margin">Provider Actions</div>
+            {supportsBrowserLink ? (
+              <div className="runtime-pill">
+                <span className={`runtime-dot ${advancedStatus?.session_connected ? "active" : ""}`} />
+                {advancedStatus?.session_connected ? "Runtime: Running" : "Runtime: Idle"}
               </div>
-              <div className="settings-separator" />
-              <label className="field-label">
-                <span>Official API bearer token</span>
-                <input
-                  type="password"
-                  value={xTokenInput}
-                  onChange={(event) => setXTokenInput(event.target.value)}
-                  placeholder={xTokenExists ? "Replace bearer token" : "Optional bearer token"}
-                  className="sheet-input"
-                />
-              </label>
-              <div className="inline-actions">
+            ) : null}
+          </div>
+
+          <div className="settings-card stacked-form">
+            {providerMethod === "official_api" && supportsApiCredential ? (
+              <>
+                <label className="field-label">
+                  <div className="field-label-row">
+                    <span>{account.provider === "x" ? "Bearer Token" : "API Key"}</span>
+                    {apiKeyExists ? <span className="field-label-action">Renew</span> : null}
+                  </div>
+                  <input
+                    type="password"
+                    value={tokenInput}
+                    onChange={(event) => setTokenInput(event.target.value)}
+                    placeholder={
+                      apiKeyExists
+                        ? account.provider === "x"
+                          ? "Replace bearer token"
+                          : "Replace API key"
+                        : account.provider === "x"
+                          ? "Enter bearer token"
+                          : "Enter API key"
+                    }
+                    className="sheet-input"
+                  />
+                </label>
                 <button
                   type="button"
-                  className="secondary-button"
-                  disabled={busyAction === "save-token" || !xTokenInput.trim()}
+                  className="provider-action-button"
+                  disabled={busyAction === "save-token" || !tokenInput.trim()}
                   onClick={async () => {
                     setBusyAction("save-token");
                     setMessage(null);
                     try {
-                      await setApiKey("x", xTokenInput.trim());
-                      setXTokenInput("");
-                      setXTokenExists(true);
-                      setMessage("Token saved");
+                      await setApiKey(account.provider, tokenInput.trim());
+                      setApiKeyExists(true);
+                      setTokenInput("");
+                      setMessage(
+                        account.provider === "x" ? "Bearer token saved" : "API key saved"
+                      );
                     } catch (err) {
                       setMessage(err instanceof Error ? err.message : String(err));
                     } finally {
@@ -226,84 +341,39 @@ export function AccountDetail({
                     }
                   }}
                 >
-                  {busyAction === "save-token" ? "Saving..." : "Save Token"}
+                  {busyAction === "save-token" ? "Saving..." : "Save Credential"}
                 </button>
-              </div>
-            </div>
-          </section>
-        ) : null}
+              </>
+            ) : null}
 
-        {account.provider === "xiaohongshu" || account.provider === "wechat" ? (
-          <section className="settings-section">
-            <div className="section-kicker">Provider Actions</div>
-            <div className="settings-card stacked-form">
-              <div className="provider-status-grid">
-                <div className="status-block">
-                  <span className="status-label">Runtime</span>
-                  <strong>{advancedStatus?.runtime_installed ? "Installed" : "Not installed"}</strong>
+            {providerMethod === "browser_link" && supportsBrowserLink ? (
+              <>
+                <div className="provider-status-grid">
+                  <div className="status-block">
+                    <span className="status-label">Runtime</span>
+                    <strong>{advancedStatus?.runtime_installed ? "Installed" : "Not installed"}</strong>
+                  </div>
+                  <div className="status-block">
+                    <span className="status-label">Browser</span>
+                    <strong>{advancedStatus?.browser_installed ? "Ready" : "Missing"}</strong>
+                  </div>
+                  <div className="status-block">
+                    <span className="status-label">Session</span>
+                    <strong>{advancedStatus?.session_connected ? "Connected" : "Not connected"}</strong>
+                  </div>
                 </div>
-                <div className="status-block">
-                  <span className="status-label">Browser</span>
-                  <strong>{advancedStatus?.browser_installed ? "Ready" : "Missing"}</strong>
-                </div>
-                <div className="status-block">
-                  <span className="status-label">Session</span>
-                  <strong>{advancedStatus?.session_connected ? "Connected" : "Not connected"}</strong>
-                </div>
-              </div>
-
-              <div className="inline-actions wrap">
-                <button
-                  type="button"
-                  className="secondary-button"
-                  disabled={busyAction === "install-runtime"}
-                  onClick={async () => {
-                    setBusyAction("install-runtime");
-                    setMessage(null);
-                    try {
-                      const nextStatus = await installAdvancedProviderRuntime(account.provider);
-                      setAdvancedStatus(nextStatus);
-                    } catch (err) {
-                      setMessage(err instanceof Error ? err.message : String(err));
-                    } finally {
-                      setBusyAction(null);
-                    }
-                  }}
-                >
-                  {busyAction === "install-runtime" ? "Installing..." : "Install Runtime"}
-                </button>
-                <button
-                  type="button"
-                  className="secondary-button"
-                  disabled={busyAction === "connect-browser"}
-                  onClick={async () => {
-                    setBusyAction("connect-browser");
-                    setMessage(null);
-                    try {
-                      await connectAdvancedProvider(account.provider);
-                      const nextStatus = await getAdvancedProviderStatus(account.provider);
-                      setAdvancedStatus(nextStatus);
-                    } catch (err) {
-                      setMessage(err instanceof Error ? err.message : String(err));
-                    } finally {
-                      setBusyAction(null);
-                    }
-                  }}
-                >
-                  {busyAction === "connect-browser" ? "Opening..." : "Connect Browser"}
-                </button>
-                {account.provider === "xiaohongshu" ? (
+                <div className="provider-status-note">{providerStatusCopy(advancedStatus)}</div>
+                <div className="inline-actions wrap">
                   <button
                     type="button"
-                    className="ghost-button"
-                    disabled={busyAction === "verify-browser"}
+                    className="secondary-button"
+                    disabled={busyAction === "install-runtime"}
                     onClick={async () => {
-                      setBusyAction("verify-browser");
+                      setBusyAction("install-runtime");
                       setMessage(null);
                       try {
-                        await verifyXiaohongshuAccount(account.id);
-                        await refresh();
-                        setMessage("Verification complete");
+                        const nextStatus = await installAdvancedProviderRuntime(account.provider);
+                        setAdvancedStatus(nextStatus);
                       } catch (err) {
                         setMessage(err instanceof Error ? err.message : String(err));
                       } finally {
@@ -311,51 +381,98 @@ export function AccountDetail({
                       }
                     }}
                   >
-                    {busyAction === "verify-browser" ? "Verifying..." : "Verify in Browser"}
+                    {busyAction === "install-runtime" ? "Installing..." : "Install Runtime"}
                   </button>
-                ) : null}
+                  <button
+                    type="button"
+                    className="secondary-button"
+                    disabled={busyAction === "connect-browser"}
+                    onClick={async () => {
+                      setBusyAction("connect-browser");
+                      setMessage(null);
+                      try {
+                        await connectAdvancedProvider(account.provider);
+                        const nextStatus = await getAdvancedProviderStatus(account.provider);
+                        setAdvancedStatus(nextStatus);
+                      } catch (err) {
+                        setMessage(err instanceof Error ? err.message : String(err));
+                      } finally {
+                        setBusyAction(null);
+                      }
+                    }}
+                  >
+                    {busyAction === "connect-browser" ? "Opening..." : "Connect Browser"}
+                  </button>
+                  {account.provider === "xiaohongshu" ? (
+                    <button
+                      type="button"
+                      className="provider-action-button subtle"
+                      disabled={busyAction === "verify-browser"}
+                      onClick={async () => {
+                        setBusyAction("verify-browser");
+                        setMessage(null);
+                        try {
+                          await verifyXiaohongshuAccount(account.id);
+                          await refresh();
+                          setMessage("Verification complete");
+                        } catch (err) {
+                          setMessage(err instanceof Error ? err.message : String(err));
+                        } finally {
+                          setBusyAction(null);
+                        }
+                      }}
+                    >
+                      {busyAction === "verify-browser" ? "Verifying..." : "Verify Connection"}
+                    </button>
+                  ) : null}
+                </div>
+              </>
+            ) : null}
+
+            {providerMethod === "public_page" ? (
+              <div className="provider-status-note">
+                Public page mode is ready. Refresh uses the platform&apos;s public profile page and
+                does not require extra setup.
               </div>
-            </div>
-          </section>
-        ) : null}
+            ) : null}
+          </div>
+        </section>
 
         <section className="settings-section danger-zone">
           <div className="section-kicker">Danger Zone</div>
-          <div className="settings-card">
-            <div className="settings-row">
-              <div className="settings-row-copy">
-                <div className="settings-row-title">Remove account</div>
-                <div className="settings-row-subtitle">
-                  Delete this account and its local history from FollowerBar.
-                </div>
-              </div>
-              <button
-                type="button"
-                className="danger-button"
-                disabled={busyAction === "remove-account"}
-                onClick={async () => {
-                  setBusyAction("remove-account");
-                  setMessage(null);
-                  try {
-                    await removeAccount(account.id);
-                    await refresh();
-                    onBack();
-                  } catch (err) {
-                    setMessage(err instanceof Error ? err.message : String(err));
-                  } finally {
-                    setBusyAction(null);
-                  }
-                }}
-              >
-                {busyAction === "remove-account" ? "Removing..." : "Remove"}
-              </button>
+          <div className="settings-card stacked-form">
+            <button
+              type="button"
+              className="danger-inline-button"
+              disabled={busyAction === "remove-account"}
+              onClick={async () => {
+                setBusyAction("remove-account");
+                setMessage(null);
+                try {
+                  await removeAccount(account.id);
+                  await refresh();
+                  onBack();
+                } catch (err) {
+                  setMessage(err instanceof Error ? err.message : String(err));
+                } finally {
+                  setBusyAction(null);
+                }
+              }}
+            >
+              {busyAction === "remove-account" ? "Removing..." : "Remove Account"}
+            </button>
+            <div className="danger-copy">
+              Removing this account will stop all background monitoring and delete historical data
+              stored for this identifier.
             </div>
           </div>
         </section>
       </main>
 
       <footer className="bottom-bar refined">
-        <div className="bottom-bar-caption">{account.last_fetched ? t("last_updated_just_now") : t("last_updated_never")}</div>
+        <div className="bottom-bar-caption">
+          {account.last_fetched ? t("last_updated_just_now") : t("last_updated_never")}
+        </div>
         <button type="button" onClick={onBack} className="refresh-link">
           <svg viewBox="0 0 20 20" aria-hidden="true" className="h-3.5 w-3.5">
             <path

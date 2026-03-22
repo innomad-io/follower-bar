@@ -10,6 +10,7 @@ export interface AccountWithStats {
   provider_state: string | null;
   provider_message: string | null;
   can_verify_in_browser: boolean;
+  provider_method: string;
 }
 
 export interface Snapshot {
