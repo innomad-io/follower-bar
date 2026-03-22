@@ -88,7 +88,22 @@ Recommended: another fine-grained personal access token.
 4. Add it to this source repository as an Actions secret:
    - Name: `RELEASES_REPO_TOKEN`
 
-If you later add macOS signing / notarization, also add the relevant Apple secrets. This workflow does not require them yet.
+Optional for signed and notarized macOS builds:
+
+- `APPLE_CERTIFICATE`
+  - base64-encoded `.p12` Developer ID Application certificate
+- `APPLE_CERTIFICATE_PASSWORD`
+  - password for the exported `.p12`
+- `KEYCHAIN_PASSWORD`
+  - temporary keychain password used during CI signing
+- `APPLE_ID`
+  - Apple account email used for notarization
+- `APPLE_PASSWORD`
+  - Apple app-specific password used for notarization
+- `APPLE_TEAM_ID`
+  - Apple Developer Team ID
+
+The workflow can build without these Apple secrets, but macOS may flag downloaded apps as damaged or untrusted. With these secrets configured, the Tauri build step can sign and notarize the app during release builds.
 
 ## Expected tap repository
 
