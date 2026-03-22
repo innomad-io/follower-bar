@@ -36,15 +36,23 @@ async function github(pathname) {
   return response.json();
 }
 
-async function downloadAndSha256(url, filename) {
-  const response = await fetch(url, { redirect: "follow", headers: { Authorization: `Bearer ${GITHUB_TOKEN}` } });
+async function downloadAndSha256(asset) {
+  const response = await fetch(asset.url, {
+    redirect: "follow",
+    headers: {
+      Authorization: `Bearer ${GITHUB_TOKEN}`,
+      Accept: "application/octet-stream",
+      "X-GitHub-Api-Version": "2022-11-28",
+      "User-Agent": `${repo}-release-bot`,
+    },
+  });
   if (!response.ok) {
-    throw new Error(`Failed to download asset ${url}: ${response.status}`);
+    throw new Error(`Failed to download asset ${asset.name}: ${response.status}`);
   }
   const arrayBuffer = await response.arrayBuffer();
   const buffer = Buffer.from(arrayBuffer);
   const sha256 = createHash("sha256").update(buffer).digest("hex");
-  return { sha256, filename };
+  return { sha256, filename: basename(asset.name) };
 }
 
 function pickAsset(assets, kind) {
@@ -110,11 +118,11 @@ if (!armReleaseAsset || !intelReleaseAsset) {
 
 const armAsset = {
   url: armReleaseAsset.browser_download_url,
-  ...(await downloadAndSha256(armReleaseAsset.browser_download_url, basename(armReleaseAsset.name))),
+  ...(await downloadAndSha256(armReleaseAsset)),
 };
 const intelAsset = {
   url: intelReleaseAsset.browser_download_url,
-  ...(await downloadAndSha256(intelReleaseAsset.browser_download_url, basename(intelReleaseAsset.name))),
+  ...(await downloadAndSha256(intelReleaseAsset)),
 };
 
 await mkdir(caskDir, { recursive: true });
