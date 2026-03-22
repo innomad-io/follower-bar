@@ -58,14 +58,14 @@ jobs:
         run: |
           set -euo pipefail
           BUNDLE_DIR="src-tauri/target/${{ matrix.target }}/release/bundle"
-          mapfile -t FILES < <(find "$BUNDLE_DIR" -type f \( -name '*.dmg' -o -name '*.app.tar.gz' -o -name '*.sig' \) | sort)
-          if [ "${#FILES[@]}" -eq 0 ]; then
+          FILES="$(find "$BUNDLE_DIR" -type f \( -name '*.dmg' -o -name '*.app.tar.gz' -o -name '*.sig' \) | sort)"
+          if [ -z "$FILES" ]; then
             echo "No release artifacts found in $BUNDLE_DIR" >&2
             exit 1
           fi
           {
             echo "files<<EOF"
-            printf '%s\n' "${FILES[@]}"
+            printf '%s\n' "$FILES"
             echo "EOF"
           } >> "$GITHUB_OUTPUT"
 
