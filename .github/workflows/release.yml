@@ -70,16 +70,23 @@ jobs:
             echo "EOF"
           } >> "$GITHUB_OUTPUT"
 
-      - name: Upload release assets
-        uses: softprops/action-gh-release@v2
+      - name: Publish release assets
         env:
-          GITHUB_TOKEN: ${{ secrets.RELEASES_REPO_TOKEN }}
-        with:
-          repository: ${{ env.RELEASES_REPOSITORY }}
-          tag_name: ${{ github.ref_name }}
-          name: FollowerBar ${{ github.ref_name }}
-          generate_release_notes: true
-          files: ${{ steps.artifacts.outputs.files }}
+          GH_TOKEN: ${{ secrets.RELEASES_REPO_TOKEN }}
+          RELEASE_REPOSITORY: ${{ env.RELEASES_REPOSITORY }}
+          RELEASE_TAG: ${{ github.ref_name }}
+          RELEASE_FILES: ${{ steps.artifacts.outputs.files }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          if gh release view "$RELEASE_TAG" --repo "$RELEASE_REPOSITORY" >/dev/null 2>&1; then
+            gh release upload "$RELEASE_TAG" $RELEASE_FILES --clobber --repo "$RELEASE_REPOSITORY"
+          else
+            gh release create "$RELEASE_TAG" $RELEASE_FILES \
+              --repo "$RELEASE_REPOSITORY" \
+              --title "FollowerBar $RELEASE_TAG" \
+              --generate-notes
+          fi
 
   update-homebrew-tap:
     name: Update Homebrew tap
