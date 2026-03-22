@@ -1,6 +1,6 @@
 [package]
 name = "followbar"
-version = "1.0.10"
+version = "1.0.12"
 description = "Mac menubar follower tracker built with Tauri"
 authors = ["innomad"]
 edition = "2021"
