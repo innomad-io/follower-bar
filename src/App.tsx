@@ -66,7 +66,7 @@ export default function App() {
             : ""
       }`}
     >
-      <div className="popover-panel h-[420px] w-[376px] overflow-hidden rounded-[10px]">
+      <div className="popover-panel h-[504px] w-[376px] overflow-hidden rounded-[10px]">
         {view === "list" ? (
           <AccountList
             onOpenSettings={() => setView("settings")}

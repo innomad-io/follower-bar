@@ -95,3 +95,7 @@ export function connectAdvancedProvider(provider: string): Promise<void> {
 export function verifyXiaohongshuAccount(accountId: string): Promise<void> {
   return invoke("verify_xiaohongshu_account", { accountId });
 }
+
+export function openRefreshLogs(): Promise<void> {
+  return invoke("open_refresh_logs");
+}

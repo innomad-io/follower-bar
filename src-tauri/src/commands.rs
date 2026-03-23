@@ -6,9 +6,10 @@ use crate::providers::ProviderManager;
 use chrono::Utc;
 use futures::stream::{self, StreamExt};
 use serde::Serialize;
+use std::process::Command;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
-use tauri::State;
+use tauri::{Manager, State};
 use tauri_plugin_autostart::ManagerExt as _;
 use tauri_plugin_notification::NotificationExt;
 use uuid::Uuid;
@@ -383,6 +384,43 @@ pub fn connect_advanced_provider(
     provider: String,
 ) -> Result<(), String> {
     advanced_runtime::connect_provider(&app, &provider).map_err(|err| err.to_string())
+}
+
+#[tauri::command]
+pub fn open_refresh_logs(app: tauri::AppHandle) -> Result<(), String> {
+    let logs_dir = app
+        .path()
+        .app_data_dir()
+        .map_err(|err| err.to_string())?
+        .join("advanced-runtime")
+        .join("logs");
+    std::fs::create_dir_all(&logs_dir).map_err(|err| err.to_string())?;
+
+    #[cfg(target_os = "macos")]
+    {
+        Command::new("open")
+            .arg(&logs_dir)
+            .spawn()
+            .map_err(|err| err.to_string())?;
+    }
+
+    #[cfg(target_os = "linux")]
+    {
+        Command::new("xdg-open")
+            .arg(&logs_dir)
+            .spawn()
+            .map_err(|err| err.to_string())?;
+    }
+
+    #[cfg(target_os = "windows")]
+    {
+        Command::new("explorer")
+            .arg(&logs_dir)
+            .spawn()
+            .map_err(|err| err.to_string())?;
+    }
+
+    Ok(())
 }
 
 #[tauri::command]

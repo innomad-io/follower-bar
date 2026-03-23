@@ -20,6 +20,20 @@ use tauri::{
     WindowEvent,
 };
 
+#[cfg(target_os = "macos")]
+fn configure_macos_activation_policy() {
+    use objc2::MainThreadMarker;
+    use objc2_app_kit::{NSApp, NSApplicationActivationPolicy};
+
+    if let Some(mtm) = MainThreadMarker::new() {
+        let app = NSApp(mtm);
+        app.setActivationPolicy(NSApplicationActivationPolicy::Accessory);
+    }
+}
+
+#[cfg(not(target_os = "macos"))]
+fn configure_macos_activation_policy() {}
+
 const POPOVER_VERTICAL_OFFSET: f64 = -4.0;
 const WINDOW_EDGE_MARGIN: f64 = 10.0;
 const WINDOW_SHADOW_PADDING: f64 = 8.0;
@@ -134,6 +148,8 @@ pub fn run() {
             None,
         ))
         .setup(move |app| {
+            configure_macos_activation_policy();
+
             let app_dir = app.path().app_data_dir()?;
             std::fs::create_dir_all(&app_dir)?;
 
@@ -220,7 +236,8 @@ pub fn run() {
             commands::get_advanced_provider_status,
             commands::install_advanced_provider_runtime,
             commands::connect_advanced_provider,
-            commands::verify_xiaohongshu_account
+            commands::verify_xiaohongshu_account,
+            commands::open_refresh_logs
         ])
         .run(tauri::generate_context!())
         .expect("error while running Tauri application");
