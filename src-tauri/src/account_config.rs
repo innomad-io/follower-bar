@@ -2,6 +2,7 @@ use chrono::{DateTime, Duration, Utc};
 use serde::{Deserialize, Serialize};
 
 pub const XIAOHONGSHU_CHALLENGE_COOLDOWN_MINUTES: i64 = 30;
+pub const BROWSER_PROVIDER_COOLDOWN_MINUTES: i64 = 10;
 
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct AccountConfig {
@@ -40,15 +41,28 @@ impl AccountConfig {
     }
 
     pub fn mark_xiaohongshu_challenge(&mut self, message: &str) {
-        self.provider_state = Some("challenge_required".to_string());
-        self.provider_message = Some(message.to_string());
-        self.cooldown_until =
-            Some(Utc::now() + Duration::minutes(XIAOHONGSHU_CHALLENGE_COOLDOWN_MINUTES));
+        self.mark_runtime_cooldown(
+            "challenge_required",
+            message,
+            XIAOHONGSHU_CHALLENGE_COOLDOWN_MINUTES,
+        );
     }
 
     pub fn should_skip_xiaohongshu_refresh(&self) -> bool {
         self.provider_state.as_deref() == Some("challenge_required")
             && self.cooldown_until.map(|deadline| deadline > Utc::now()).unwrap_or(false)
+    }
+
+    pub fn mark_runtime_cooldown(&mut self, state: &str, message: &str, minutes: i64) {
+        self.provider_state = Some(state.to_string());
+        self.provider_message = Some(message.to_string());
+        self.cooldown_until = Some(Utc::now() + Duration::minutes(minutes));
+    }
+
+    pub fn should_skip_runtime_refresh(&self) -> bool {
+        self.cooldown_until
+            .map(|deadline| deadline > Utc::now())
+            .unwrap_or(false)
     }
 
     pub fn provider_method_for(&self, provider: &str) -> String {

@@ -1,9 +1,10 @@
-use crate::account_config::AccountConfig;
+use crate::account_config::{AccountConfig, BROWSER_PROVIDER_COOLDOWN_MINUTES};
 use crate::advanced_runtime::{self, AdvancedProviderStatus};
 use crate::db::{Account, Database, Snapshot};
 use crate::keychain;
 use crate::providers::ProviderManager;
 use chrono::Utc;
+use futures::stream::{self, StreamExt};
 use serde::Serialize;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
@@ -70,16 +71,38 @@ pub struct ProviderInfo {
 #[derive(Debug, Serialize)]
 pub struct RefreshSummary {
     pub refreshed_accounts: usize,
+    pub skipped_accounts: usize,
     pub failed_accounts: Vec<String>,
+}
+
+const MIN_REFRESH_INTERVAL_SECONDS: i64 = 45;
+const LIGHT_REFRESH_CONCURRENCY: usize = 3;
+
+enum RefreshOutcome {
+    Refreshed,
+    Skipped,
+}
+
+fn is_browser_provider(provider: &str) -> bool {
+    matches!(provider, "xiaohongshu" | "wechat")
+}
+
+fn is_lightweight_refresh(provider: &str, provider_method: &str) -> bool {
+    match provider {
+        "bilibili" => true,
+        "youtube" => true,
+        "x" => provider_method == "official_api",
+        _ => false,
+    }
 }
 
 async fn refresh_single_account_internal(
     state: &AppState,
     app: &tauri::AppHandle,
     account: &Account,
-) -> Result<(), String> {
+) -> Result<RefreshOutcome, String> {
     let Some(provider) = state.providers.get(&account.provider) else {
-        return Ok(());
+        return Ok(RefreshOutcome::Skipped);
     };
     let mut account_config = AccountConfig::from_json(account.config.as_deref());
     let provider_method = account_config.provider_method_for(&account.provider);
@@ -94,6 +117,30 @@ async fn refresh_single_account_internal(
                 .clone()
                 .unwrap_or_else(|| "Xiaohongshu requires manual verification.".to_string())
         ));
+    }
+    if is_browser_provider(&account.provider) && account_config.should_skip_runtime_refresh() {
+        return Err(format!(
+            "{} ({}) skipped during cooldown: {}",
+            provider.name(),
+            account.display_name.as_deref().unwrap_or(&account.username),
+            account_config
+                .provider_message
+                .clone()
+                .unwrap_or_else(|| "Browser session needs attention before the next refresh.".to_string())
+        ));
+    }
+
+    {
+        let db = state.db.lock().map_err(|err| err.to_string())?;
+        if let Some(latest) = db
+            .get_latest_snapshot(&account.id)
+            .map_err(|err| err.to_string())?
+        {
+            let seconds_since_last = (Utc::now().naive_utc() - latest.fetched_at).num_seconds();
+            if seconds_since_last >= 0 && seconds_since_last < MIN_REFRESH_INTERVAL_SECONDS {
+                return Ok(RefreshOutcome::Skipped);
+            }
+        }
     }
 
     let fetch_target = account
@@ -211,7 +258,7 @@ async fn refresh_single_account_internal(
                 }
             }
 
-            Ok(())
+            Ok(RefreshOutcome::Refreshed)
         }
         Err(err) => {
             if account.provider == "xiaohongshu"
@@ -219,6 +266,19 @@ async fn refresh_single_account_internal(
             {
                 account_config.mark_xiaohongshu_challenge(
                     "Manual verification required before Xiaohongshu can refresh again.",
+                );
+                let db = state.db.lock().map_err(|db_err| db_err.to_string())?;
+                db.update_account_config(&account.id, account_config.to_json().as_deref())
+                    .map_err(|db_err| db_err.to_string())?;
+            } else if is_browser_provider(&account.provider)
+                && (err.to_string().contains("session is missing or expired")
+                    || err.to_string().contains("LOGIN_REQUIRED")
+                    || err.to_string().contains("CHALLENGE_REQUIRED"))
+            {
+                account_config.mark_runtime_cooldown(
+                    "session_required",
+                    "Browser session needs verification before refreshing again.",
+                    BROWSER_PROVIDER_COOLDOWN_MINUTES,
                 );
                 let db = state.db.lock().map_err(|db_err| db_err.to_string())?;
                 db.update_account_config(&account.id, account_config.to_json().as_deref())
@@ -518,11 +578,33 @@ pub async fn do_refresh_all(
         db.list_accounts().map_err(|err| err.to_string())?
     };
     let mut refreshed_accounts = 0usize;
+    let mut skipped_accounts = 0usize;
     let mut failed_accounts = Vec::new();
+    let (light_accounts, heavy_accounts): (Vec<_>, Vec<_>) = accounts
+        .into_iter()
+        .partition(|account| {
+            let config = AccountConfig::from_json(account.config.as_deref());
+            is_lightweight_refresh(&account.provider, &config.provider_method_for(&account.provider))
+        });
 
-    for account in accounts {
-        match refresh_single_account_internal(state, app, &account).await {
-            Ok(()) => refreshed_accounts += 1,
+    let light_results = stream::iter(light_accounts.into_iter().map(|account| async move {
+        let result = refresh_single_account_internal(state, app, &account).await;
+        (account, result)
+    }))
+    .buffer_unordered(LIGHT_REFRESH_CONCURRENCY)
+    .collect::<Vec<_>>()
+    .await;
+
+    let mut all_results = light_results;
+    for account in heavy_accounts {
+        let result = refresh_single_account_internal(state, app, &account).await;
+        all_results.push((account, result));
+    }
+
+    for (account, result) in all_results {
+        match result {
+            Ok(RefreshOutcome::Refreshed) => refreshed_accounts += 1,
+            Ok(RefreshOutcome::Skipped) => skipped_accounts += 1,
             Err(err) => {
                 eprintln!(
                     "failed to fetch provider={} username={}: {}",
@@ -539,6 +621,7 @@ pub async fn do_refresh_all(
 
     Ok(RefreshSummary {
         refreshed_accounts,
+        skipped_accounts,
         failed_accounts,
     })
 }
@@ -566,7 +649,9 @@ pub async fn refresh_account(
             .ok_or_else(|| "Account not found".to_string())?
     };
 
-    refresh_single_account_internal(&state, &app, &account).await
+    match refresh_single_account_internal(&state, &app, &account).await? {
+        RefreshOutcome::Refreshed | RefreshOutcome::Skipped => Ok(()),
+    }
 }
 
 #[tauri::command]

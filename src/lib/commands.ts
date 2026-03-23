@@ -3,13 +3,9 @@ import type {
   AccountWithStats,
   AdvancedProviderStatus,
   ProviderInfo,
+  RefreshSummary,
   Snapshot,
 } from "../types";
-
-export interface RefreshSummary {
-  refreshed_accounts: number;
-  failed_accounts: string[];
-}
 
 export function listAccounts(): Promise<AccountWithStats[]> {
   return invoke("list_accounts");

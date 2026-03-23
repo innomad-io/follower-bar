@@ -37,3 +37,9 @@ export interface AdvancedProviderStatus {
   state: string;
   detail: string | null;
 }
+
+export interface RefreshSummary {
+  refreshed_accounts: number;
+  skipped_accounts: number;
+  failed_accounts: string[];
+}

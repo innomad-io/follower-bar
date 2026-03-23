@@ -48,11 +48,18 @@ export function AccountList({
   const { t } = useI18n();
   const { accounts, error, loading, refresh } = useAccounts();
   const [refreshError, setRefreshError] = useState<string | null>(null);
+  const [refreshSummary, setRefreshSummary] = useState<string | null>(null);
+  const [isRefreshing, setIsRefreshing] = useState(false);
   const [expandedAccountId, setExpandedAccountId] = useState<string | null>(null);
-  const footerLabel = useMemo(
-    () => lastUpdatedLabel(accounts.map((account) => account.last_fetched), t),
-    [accounts, t]
-  );
+  const footerLabel = useMemo(() => {
+    if (isRefreshing) {
+      return t("refreshing_accounts");
+    }
+    if (refreshSummary) {
+      return refreshSummary;
+    }
+    return lastUpdatedLabel(accounts.map((account) => account.last_fetched), t);
+  }, [accounts, isRefreshing, refreshSummary, t]);
 
   return (
     <div className="screen-shell">
@@ -143,7 +150,10 @@ export function AccountList({
         <div className="bottom-bar-caption">{footerLabel}</div>
         <button
           type="button"
+          disabled={isRefreshing}
           onClick={async () => {
+            setIsRefreshing(true);
+            setRefreshSummary(null);
             try {
               const summary = await refreshAll();
               await refresh();
@@ -152,9 +162,24 @@ export function AccountList({
                   ? summary.failed_accounts.join(" | ")
                   : null;
               setRefreshError(nextError);
+              setRefreshSummary(
+                summary.failed_accounts.length > 0
+                  ? t("refresh_summary_failed", {
+                      refreshed: summary.refreshed_accounts,
+                      skipped: summary.skipped_accounts,
+                      failed: summary.failed_accounts.length,
+                    })
+                  : t("refresh_summary", {
+                      refreshed: summary.refreshed_accounts,
+                      skipped: summary.skipped_accounts,
+                    })
+              );
             } catch (err) {
               const message = err instanceof Error ? err.message : String(err);
               setRefreshError(message);
+              setRefreshSummary(null);
+            } finally {
+              setIsRefreshing(false);
             }
           }}
           className="refresh-link"
@@ -165,7 +190,7 @@ export function AccountList({
               fill="currentColor"
             />
           </svg>
-          {t("refresh")}
+          {isRefreshing ? t("refreshing_accounts") : t("refresh")}
         </button>
       </footer>
     </div>

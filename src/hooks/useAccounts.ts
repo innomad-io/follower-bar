@@ -9,7 +9,7 @@ export function useAccounts() {
 
   const refresh = async () => {
     try {
-      setLoading(true);
+      setLoading((current) => current && accounts.length === 0);
       const nextAccounts = await listAccounts();
       setAccounts(nextAccounts);
       setError(null);

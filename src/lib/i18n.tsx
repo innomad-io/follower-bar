@@ -35,7 +35,10 @@ type MessageKey =
   | "language"
   | "language_copy"
   | "done"
-  | "minimal_global_settings";
+  | "minimal_global_settings"
+  | "refreshing_accounts"
+  | "refresh_summary"
+  | "refresh_summary_failed";
 
 interface I18nContextValue {
   preference: SupportedLocale;
@@ -74,6 +77,9 @@ const messages: Record<Exclude<SupportedLocale, "system">, Record<MessageKey, st
     language_copy: "Choose the interface language or follow the macOS system setting.",
     done: "Done",
     minimal_global_settings: "Minimal global settings only",
+    refreshing_accounts: "Refreshing accounts...",
+    refresh_summary: "{refreshed} refreshed · {skipped} skipped",
+    refresh_summary_failed: "{refreshed} refreshed · {skipped} skipped · {failed} failed",
   },
   "zh-CN": {
     app_name: "FollowerBar",
@@ -102,6 +108,9 @@ const messages: Record<Exclude<SupportedLocale, "system">, Record<MessageKey, st
     language_copy: "选择界面语言，或跟随 macOS 系统设置。",
     done: "完成",
     minimal_global_settings: "仅保留全局设置",
+    refreshing_accounts: "正在刷新账号...",
+    refresh_summary: "已刷新 {refreshed} 个 · 跳过 {skipped} 个",
+    refresh_summary_failed: "已刷新 {refreshed} 个 · 跳过 {skipped} 个 · 失败 {failed} 个",
   },
 };
 
