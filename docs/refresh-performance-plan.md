@@ -181,26 +181,24 @@
 
 ### 5.1 Sidecar 常驻化
 
-当前每次刷新都会新起 sidecar 进程。  
-中期可以考虑将 sidecar 改成常驻服务：
+第一阶段已实施：
 
-- 启动一次
-- 接收多次请求
-- 长期持有 Playwright/browser context
+- `node provider-sidecar` 改为常驻 daemon
+- Rust 侧通过 `stdin/stdout` 发送 JSON 请求
+- sidecar 退出时，Rust 侧会重启一次并重试
 
-收益：
+当前收益：
 
-- 降低进程启动成本
-- 降低 Playwright 初始化成本
-- 降低重平台的单次刷新延迟
+- 不再为每次 sidecar 请求重复启动 `node`
+- 减少了 sidecar 命令进程的冷启动开销
 
-代价：
+当前仍未实施：
 
-- 架构复杂度显著上升
-- 需要管理 sidecar 生命周期
-- 需要做 crash recovery
+- Playwright `browser` / `context` 复用
+- provider 级连接池
+- idle recycle / 更细粒度的 health check
 
-因此不建议作为第一步优化。
+因此目前属于“常驻 sidecar 第一阶段”，不是完整的 browser runtime 复用。
 
 ## 6. 建议实施顺序
 
@@ -211,7 +209,7 @@
 3. 已完成：增加抓取前最短刷新间隔
 4. 已完成：补充浏览器型 provider 的冷却/跳过逻辑
 5. 已完成：增加全局刷新摘要反馈
-6. 中期：常驻 sidecar
+6. 中期：browser/context 复用
 
 ## 7. 结论
 

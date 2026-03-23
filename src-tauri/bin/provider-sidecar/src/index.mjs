@@ -1,4 +1,5 @@
 import fs from "node:fs";
+import readline from "node:readline";
 import {
   healthCheck as xiaohongshuHealthCheck,
   connect,
@@ -32,8 +33,7 @@ async function readInput() {
   return JSON.parse(Buffer.concat(chunks).toString("utf8"));
 }
 
-async function main() {
-  const payload = await readInput();
+async function dispatch(payload) {
   const action = payload.action;
   const platform = payload.platform;
 
@@ -80,10 +80,45 @@ async function main() {
     throw new Error(`Unsupported platform: ${platform}`);
   }
 
+  return result;
+}
+
+async function runOnce() {
+  const payload = await readInput();
+  const result = await dispatch(payload);
   process.stdout.write(`${JSON.stringify(result)}\n`);
 }
 
-main().catch((error) => {
+async function runDaemon() {
+  const rl = readline.createInterface({
+    input: process.stdin,
+    crlfDelay: Infinity,
+  });
+
+  for await (const line of rl) {
+    if (!line.trim()) {
+      continue;
+    }
+
+    try {
+      const payload = JSON.parse(line);
+      const result = await dispatch(payload);
+      process.stdout.write(`${JSON.stringify(result)}\n`);
+    } catch (error) {
+      process.stdout.write(
+        `${JSON.stringify({
+          ok: false,
+          code: "DAEMON_ERROR",
+          message: error?.message ?? String(error),
+        })}\n`
+      );
+    }
+  }
+}
+
+const entry = process.argv.includes("--daemon") ? runDaemon : runOnce;
+
+entry().catch((error) => {
   process.stderr.write(`${error?.stack ?? String(error)}\n`);
   process.exit(1);
 });

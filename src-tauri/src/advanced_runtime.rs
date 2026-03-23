@@ -4,9 +4,10 @@ use chrono::Utc;
 use serde::{Deserialize, Serialize};
 use serde_json::json;
 use std::fs::{self, File};
-use std::io::Write;
+use std::io::{BufRead, BufReader, BufWriter, Write};
 use std::path::{Path, PathBuf};
-use std::process::{Command, Stdio};
+use std::process::{Child, ChildStdin, ChildStdout, Command, Stdio};
+use std::sync::{Mutex, OnceLock};
 use tauri::{AppHandle, Manager};
 
 const ADVANCED_RUNTIME_VERSION: &str = "1";
@@ -47,6 +48,14 @@ struct SidecarResponse {
     #[serde(default)]
     followers: Option<u64>,
 }
+
+struct SidecarDaemon {
+    child: Child,
+    stdin: BufWriter<ChildStdin>,
+    stdout: BufReader<ChildStdout>,
+}
+
+static SIDECAR_DAEMON: OnceLock<Mutex<Option<SidecarDaemon>>> = OnceLock::new();
 
 pub fn get_provider_status(app: &AppHandle, provider: &str) -> Result<AdvancedProviderStatus> {
     ensure_supported(provider)?;
@@ -367,37 +376,106 @@ fn run_install_commands(root: &Path) -> Result<()> {
 }
 
 fn run_sidecar_json(payload: serde_json::Value) -> Result<SidecarResponse> {
+    let browser_path = payload
+        .get("browserPath")
+        .and_then(|value| value.as_str())
+        .unwrap_or_default()
+        .to_string();
+    let logs_dir = payload
+        .get("runtimeRoot")
+        .and_then(|value| value.as_str())
+        .map(PathBuf::from)
+        .map(|root| root.join("logs"))
+        .unwrap_or_else(|| sidecar_dir().join("logs"));
+
+    let daemon_lock = SIDECAR_DAEMON.get_or_init(|| Mutex::new(None));
+    let mut daemon_slot = daemon_lock
+        .lock()
+        .map_err(|_| anyhow!("Failed to lock sidecar daemon state"))?;
+
+    if daemon_slot.is_none() {
+        *daemon_slot = Some(spawn_sidecar_daemon(&browser_path, &logs_dir)?);
+    }
+
+    let first_attempt = daemon_request(
+        daemon_slot
+            .as_mut()
+            .ok_or_else(|| anyhow!("Sidecar daemon failed to start"))?,
+        &payload,
+    );
+
+    match first_attempt {
+        Ok(response) => Ok(response),
+        Err(first_error) => {
+            *daemon_slot = Some(spawn_sidecar_daemon(&browser_path, &logs_dir)?);
+            daemon_request(
+                daemon_slot
+                    .as_mut()
+                    .ok_or_else(|| anyhow!("Sidecar daemon failed to restart"))?,
+                &payload,
+            )
+            .with_context(|| format!("Provider sidecar failed after restart: {first_error}"))
+        }
+    }
+}
+
+fn spawn_sidecar_daemon(browser_path: &str, logs_dir: &Path) -> Result<SidecarDaemon> {
+    fs::create_dir_all(logs_dir)?;
+    let stderr_log = File::create(logs_dir.join("provider-sidecar-daemon.stderr.log"))
+        .context("create sidecar daemon stderr log")?;
+
     let mut child = Command::new("node")
         .arg(sidecar_entry())
-        .env(
-            "PLAYWRIGHT_BROWSERS_PATH",
-            payload
-                .get("browserPath")
-                .and_then(|value| value.as_str())
-                .unwrap_or_default(),
-        )
+        .arg("--daemon")
+        .env("PLAYWRIGHT_BROWSERS_PATH", browser_path)
         .stdin(Stdio::piped())
         .stdout(Stdio::piped())
-        .stderr(Stdio::piped())
+        .stderr(Stdio::from(stderr_log))
         .spawn()
-        .context("spawn provider sidecar")?;
+        .context("spawn provider sidecar daemon")?;
 
-    {
-        let stdin = child
-            .stdin
-            .as_mut()
-            .ok_or_else(|| anyhow!("Failed to open sidecar stdin"))?;
-        stdin.write_all(payload.to_string().as_bytes())?;
+    let stdin = child
+        .stdin
+        .take()
+        .ok_or_else(|| anyhow!("Failed to open sidecar daemon stdin"))?;
+    let stdout = child
+        .stdout
+        .take()
+        .ok_or_else(|| anyhow!("Failed to open sidecar daemon stdout"))?;
+
+    Ok(SidecarDaemon {
+        child,
+        stdin: BufWriter::new(stdin),
+        stdout: BufReader::new(stdout),
+    })
+}
+
+fn daemon_request(daemon: &mut SidecarDaemon, payload: &serde_json::Value) -> Result<SidecarResponse> {
+    if let Some(status) = daemon.child.try_wait().context("poll sidecar daemon")? {
+        return Err(anyhow!("Sidecar daemon exited unexpectedly with status {status}"));
     }
 
-    let output = child.wait_with_output().context("wait for sidecar output")?;
-    if !output.status.success() {
-        let stderr = String::from_utf8_lossy(&output.stderr);
-        return Err(anyhow!("Provider sidecar failed: {}", stderr.trim()));
+    daemon
+        .stdin
+        .write_all(payload.to_string().as_bytes())
+        .context("write sidecar daemon payload")?;
+    daemon
+        .stdin
+        .write_all(b"\n")
+        .context("write sidecar daemon payload newline")?;
+    daemon.stdin.flush().context("flush sidecar daemon payload")?;
+
+    let mut line = String::new();
+    let bytes = daemon
+        .stdout
+        .read_line(&mut line)
+        .context("read sidecar daemon response")?;
+    if bytes == 0 {
+        return Err(anyhow!("Sidecar daemon closed stdout"));
     }
 
-    serde_json::from_slice::<SidecarResponse>(&output.stdout)
-        .context("parse sidecar JSON response")
+    serde_json::from_str::<SidecarResponse>(line.trim_end())
+        .context("parse sidecar daemon JSON response")
 }
 
 fn status_from_root(root: &Path, provider: &str) -> Result<AdvancedProviderStatus> {
