@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { connectAdvancedProvider, refreshAll, verifyXiaohongshuAccount } from "../lib/commands";
+import { connectAdvancedProvider, refreshAccount, verifyXiaohongshuAccount } from "../lib/commands";
 import { useI18n } from "../lib/i18n";
 import type { AccountWithStats } from "../types";
 import { MiniChart } from "./MiniChart";
@@ -82,7 +82,7 @@ export function AccountRow({
     setBusy(true);
     setError(null);
     try {
-      await refreshAll();
+      await refreshAccount(account.id);
       await onRefreshList();
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err));

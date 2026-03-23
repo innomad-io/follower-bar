@@ -1,6 +1,6 @@
 use crate::account_config::AccountConfig;
 use crate::advanced_runtime::{self, AdvancedProviderStatus};
-use crate::db::{Database, Snapshot};
+use crate::db::{Account, Database, Snapshot};
 use crate::keychain;
 use crate::providers::ProviderManager;
 use chrono::Utc;
@@ -71,6 +71,167 @@ pub struct ProviderInfo {
 pub struct RefreshSummary {
     pub refreshed_accounts: usize,
     pub failed_accounts: Vec<String>,
+}
+
+async fn refresh_single_account_internal(
+    state: &AppState,
+    app: &tauri::AppHandle,
+    account: &Account,
+) -> Result<(), String> {
+    let Some(provider) = state.providers.get(&account.provider) else {
+        return Ok(());
+    };
+    let mut account_config = AccountConfig::from_json(account.config.as_deref());
+    let provider_method = account_config.provider_method_for(&account.provider);
+
+    if account.provider == "xiaohongshu" && account_config.should_skip_xiaohongshu_refresh() {
+        return Err(format!(
+            "{} ({}) skipped during cooldown: {}",
+            provider.name(),
+            account.display_name.as_deref().unwrap_or(&account.username),
+            account_config
+                .provider_message
+                .clone()
+                .unwrap_or_else(|| "Xiaohongshu requires manual verification.".to_string())
+        ));
+    }
+
+    let fetch_target = account
+        .resolved_id
+        .as_deref()
+        .unwrap_or(account.username.as_str());
+    let fetch_result = if account.provider == "xiaohongshu" {
+        advanced_runtime::fetch_xiaohongshu_profile(app, fetch_target)
+    } else if account.provider == "wechat" {
+        advanced_runtime::fetch_wechat_profile(app, fetch_target)
+    } else if account.provider == "douyin" {
+        advanced_runtime::fetch_douyin_profile(app, fetch_target)
+    } else if account.provider == "x" {
+        match provider_method.as_str() {
+            "official_api" => {
+                let api_key = keychain::get_api_key(&account.provider)
+                    .map_err(|err| err.to_string())?;
+                let token = api_key
+                    .as_deref()
+                    .ok_or_else(|| "X official API requires a bearer token".to_string())?;
+                provider.fetch(fetch_target, Some(token)).await
+            }
+            _ => advanced_runtime::fetch_x_profile(app, fetch_target),
+        }
+    } else if account.provider == "youtube" {
+        match provider_method.as_str() {
+            "official_api" => {
+                let api_key = keychain::get_api_key(&account.provider)
+                    .map_err(|err| err.to_string())?;
+                let key = api_key
+                    .as_deref()
+                    .ok_or_else(|| "YouTube official API requires an API key".to_string())?;
+                provider.fetch(fetch_target, Some(key)).await
+            }
+            _ => provider.fetch(fetch_target, None).await,
+        }
+    } else {
+        let api_key = if provider.needs_api_key() {
+            keychain::get_api_key(&account.provider)
+                .map_err(|err| err.to_string())?
+        } else {
+            None
+        };
+        provider.fetch(fetch_target, api_key.as_deref()).await
+    };
+
+    match fetch_result {
+        Ok(data) => {
+            let resolved_username = data
+                .extra
+                .as_ref()
+                .and_then(|extra| extra.get("username"))
+                .cloned()
+                .unwrap_or_else(|| account.username.clone());
+            let resolved_id = data
+                .extra
+                .as_ref()
+                .and_then(|extra| extra.get("resolved_id"))
+                .cloned()
+                .or(account.resolved_id.clone());
+            let display_name = data
+                .extra
+                .as_ref()
+                .and_then(|extra| extra.get("display_name"))
+                .cloned()
+                .or(account.display_name.clone());
+            let extra_json = data
+                .extra
+                .map(|extra| serde_json::to_string(&extra))
+                .transpose()
+                .map_err(|err| err.to_string())?;
+
+            let db = state.db.lock().map_err(|err| err.to_string())?;
+            account_config.clear_runtime_state();
+            db.update_account_profile(
+                &account.id,
+                &resolved_username,
+                resolved_id.as_deref(),
+                display_name.as_deref(),
+            )
+            .map_err(|err| err.to_string())?;
+            db.update_account_config(&account.id, account_config.to_json().as_deref())
+                .map_err(|err| err.to_string())?;
+            let prev_followers = db
+                .get_latest_snapshot(&account.id)
+                .map_err(|err| err.to_string())?
+                .map(|snapshot| snapshot.followers)
+                .unwrap_or(0);
+
+            db.insert_snapshot(&account.id, data.followers, extra_json.as_deref())
+                .map_err(|err| err.to_string())?;
+            db.ensure_milestones_for_account(&account.id, data.followers)
+                .map_err(|err| err.to_string())?;
+
+            if state.milestone_enabled.load(Ordering::Relaxed) {
+                let reached = crate::milestone::MilestoneChecker::check(
+                    &db,
+                    &account.id,
+                    prev_followers,
+                    data.followers,
+                );
+
+                for (_, target) in reached {
+                    let _ = app
+                        .notification()
+                        .builder()
+                        .title("FollowerBar")
+                        .body(format!(
+                            "🎉 你的 {} 账号 {} 粉丝突破 {}！",
+                            provider.name(),
+                            display_name.as_deref().unwrap_or(&resolved_username),
+                            target
+                        ))
+                        .show();
+                }
+            }
+
+            Ok(())
+        }
+        Err(err) => {
+            if account.provider == "xiaohongshu"
+                && err.to_string().contains("Xiaohongshu showed a security restriction page")
+            {
+                account_config.mark_xiaohongshu_challenge(
+                    "Manual verification required before Xiaohongshu can refresh again.",
+                );
+                let db = state.db.lock().map_err(|db_err| db_err.to_string())?;
+                db.update_account_config(&account.id, account_config.to_json().as_deref())
+                    .map_err(|db_err| db_err.to_string())?;
+            }
+            Err(format!(
+                "{} ({}) failed: {}",
+                provider.name(),
+                account.display_name.as_deref().unwrap_or(&account.username),
+                err
+            ))
+        }
+    }
 }
 
 #[tauri::command]
@@ -360,163 +521,14 @@ pub async fn do_refresh_all(
     let mut failed_accounts = Vec::new();
 
     for account in accounts {
-        let Some(provider) = state.providers.get(&account.provider) else {
-            continue;
-        };
-        let mut account_config = AccountConfig::from_json(account.config.as_deref());
-        let provider_method = account_config.provider_method_for(&account.provider);
-
-        if account.provider == "xiaohongshu" && account_config.should_skip_xiaohongshu_refresh() {
-            failed_accounts.push(format!(
-                "{} ({}) skipped during cooldown: {}",
-                provider.name(),
-                account.display_name.as_deref().unwrap_or(&account.username),
-                account_config
-                    .provider_message
-                    .clone()
-                    .unwrap_or_else(|| "Xiaohongshu requires manual verification.".to_string())
-            ));
-            continue;
-        }
-
-        let fetch_target = account
-            .resolved_id
-            .as_deref()
-            .unwrap_or(account.username.as_str());
-        let fetch_result = if account.provider == "xiaohongshu" {
-            advanced_runtime::fetch_xiaohongshu_profile(app, fetch_target)
-        } else if account.provider == "wechat" {
-            advanced_runtime::fetch_wechat_profile(app, fetch_target)
-        } else if account.provider == "douyin" {
-            advanced_runtime::fetch_douyin_profile(app, fetch_target)
-        } else if account.provider == "x" {
-            match provider_method.as_str() {
-                "official_api" => {
-                    let api_key = keychain::get_api_key(&account.provider)
-                        .map_err(|err| err.to_string())?;
-                    let token = api_key
-                        .as_deref()
-                        .ok_or_else(|| "X official API requires a bearer token".to_string())?;
-                    provider.fetch(fetch_target, Some(token)).await
-                }
-                _ => advanced_runtime::fetch_x_profile(app, fetch_target),
-            }
-        } else if account.provider == "youtube" {
-            match provider_method.as_str() {
-                "official_api" => {
-                    let api_key = keychain::get_api_key(&account.provider)
-                        .map_err(|err| err.to_string())?;
-                    let key = api_key
-                        .as_deref()
-                        .ok_or_else(|| "YouTube official API requires an API key".to_string())?;
-                    provider.fetch(fetch_target, Some(key)).await
-                }
-                _ => provider.fetch(fetch_target, None).await,
-            }
-        } else {
-            let api_key = if provider.needs_api_key() {
-                keychain::get_api_key(&account.provider)
-                    .map_err(|err| err.to_string())?
-            } else {
-                None
-            };
-            provider.fetch(fetch_target, api_key.as_deref()).await
-        };
-
-        match fetch_result {
-            Ok(data) => {
-                let resolved_username = data
-                    .extra
-                    .as_ref()
-                    .and_then(|extra| extra.get("username"))
-                    .cloned()
-                    .unwrap_or_else(|| account.username.clone());
-                let resolved_id = data
-                    .extra
-                    .as_ref()
-                    .and_then(|extra| extra.get("resolved_id"))
-                    .cloned()
-                    .or(account.resolved_id.clone());
-                let display_name = data
-                    .extra
-                    .as_ref()
-                    .and_then(|extra| extra.get("display_name"))
-                    .cloned()
-                    .or(account.display_name.clone());
-                let extra_json = data
-                    .extra
-                    .map(|extra| serde_json::to_string(&extra))
-                    .transpose()
-                    .map_err(|err| err.to_string())?;
-
-                let db = state.db.lock().map_err(|err| err.to_string())?;
-                account_config.clear_runtime_state();
-                db.update_account_profile(
-                    &account.id,
-                    &resolved_username,
-                    resolved_id.as_deref(),
-                    display_name.as_deref(),
-                )
-                .map_err(|err| err.to_string())?;
-                db.update_account_config(&account.id, account_config.to_json().as_deref())
-                    .map_err(|err| err.to_string())?;
-                let prev_followers = db
-                    .get_latest_snapshot(&account.id)
-                    .map_err(|err| err.to_string())?
-                    .map(|snapshot| snapshot.followers)
-                    .unwrap_or(0);
-
-                db.insert_snapshot(&account.id, data.followers, extra_json.as_deref())
-                    .map_err(|err| err.to_string())?;
-                db.ensure_milestones_for_account(&account.id, data.followers)
-                    .map_err(|err| err.to_string())?;
-
-                if state.milestone_enabled.load(Ordering::Relaxed) {
-                    let reached = crate::milestone::MilestoneChecker::check(
-                        &db,
-                        &account.id,
-                        prev_followers,
-                        data.followers,
-                    );
-
-                    for (_, target) in reached {
-                        let _ = app
-                            .notification()
-                            .builder()
-                            .title("FollowerBar")
-                            .body(format!(
-                                "🎉 你的 {} 账号 {} 粉丝突破 {}！",
-                                provider.name(),
-                                display_name.as_deref().unwrap_or(&resolved_username),
-                                target
-                            ))
-                            .show();
-                    }
-                }
-
-                refreshed_accounts += 1;
-            }
+        match refresh_single_account_internal(state, app, &account).await {
+            Ok(()) => refreshed_accounts += 1,
             Err(err) => {
-                if account.provider == "xiaohongshu"
-                    && err.to_string().contains("Xiaohongshu showed a security restriction page")
-                {
-                    account_config.mark_xiaohongshu_challenge(
-                        "Manual verification required before Xiaohongshu can refresh again.",
-                    );
-                    let db = state.db.lock().map_err(|db_err| db_err.to_string())?;
-                    db.update_account_config(&account.id, account_config.to_json().as_deref())
-                        .map_err(|db_err| db_err.to_string())?;
-                }
-                failed_accounts.push(format!(
-                    "{} ({}) failed: {}",
-                    provider.name(),
-                    account.display_name.as_deref().unwrap_or(&account.username),
-                    err
-                ));
                 eprintln!(
                     "failed to fetch provider={} username={}: {}",
                     account.provider, account.username, err
                 );
+                failed_accounts.push(err);
             }
         }
     }
@@ -537,6 +549,24 @@ pub async fn refresh_all(
     app: tauri::AppHandle,
 ) -> Result<RefreshSummary, String> {
     do_refresh_all(&state, &app).await
+}
+
+#[tauri::command]
+pub async fn refresh_account(
+    state: State<'_, AppState>,
+    app: tauri::AppHandle,
+    account_id: String,
+) -> Result<(), String> {
+    let account = {
+        let db = state.db.lock().map_err(|err| err.to_string())?;
+        db.list_accounts()
+            .map_err(|err| err.to_string())?
+            .into_iter()
+            .find(|account| account.id == account_id)
+            .ok_or_else(|| "Account not found".to_string())?
+    };
+
+    refresh_single_account_internal(&state, &app, &account).await
 }
 
 #[tauri::command]

@@ -44,6 +44,10 @@ export function refreshAll(): Promise<RefreshSummary> {
   return invoke("refresh_all");
 }
 
+export function refreshAccount(accountId: string): Promise<void> {
+  return invoke("refresh_account", { accountId });
+}
+
 export function setApiKey(provider: string, key: string): Promise<void> {
   return invoke("set_api_key", { provider, key });
 }

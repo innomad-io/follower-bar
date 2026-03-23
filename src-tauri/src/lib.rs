@@ -208,6 +208,7 @@ pub fn run() {
             commands::get_snapshots_7d,
             commands::get_available_providers,
             commands::refresh_all,
+            commands::refresh_account,
             commands::set_api_key,
             commands::get_api_key_exists,
             commands::get_refresh_interval,
