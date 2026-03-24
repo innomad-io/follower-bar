@@ -57,6 +57,7 @@ xattr -dr com.apple.quarantine /Applications/FollowerBar.app
 启动后，FollowerBar 会出现在 macOS 菜单栏中。
 
 点击菜单栏图标即可打开弹层。
+![](https://imgs.innomad.io/blog/20260324161858848.png)
 
 主弹层会显示：
 
@@ -93,16 +94,35 @@ xattr -dr com.apple.quarantine /Applications/FollowerBar.app
 
 ### 3.1 流程
 
+点击主界面右上角的➕，可以添加账号
+
+目前支持：
+- Bilibili
+- Douyin
+- Xiaohongshu
+- 微信公众号
+- YouTube
+- X
+- 其他平台正在适配中
+
 添加账号时：
 
 1. 选择平台
 2. 输入 handle、URL 或平台标识
+![](https://imgs.innomad.io/blog/20260324162716145.png)
 3. 继续
 4. 如有需要，在账号编辑页中配置 provider 方式
+
+> 每个平台的输入要求不同，详情见下文
+
 
 ### 3.2 各平台推荐输入方式
 
 #### X
+
+X 账号使用未登录的页面获取数据，推荐输入方式，输入你的账号名或者链接即可。
+
+这种方式无需担心平台风控。
 
 - `@username`
 - `x.com/username`
@@ -110,50 +130,85 @@ xattr -dr com.apple.quarantine /Applications/FollowerBar.app
 
 #### YouTube
 
+YouTube 账号可以使用未登录公开页面或官方 API 获取数据。
+
+这种方式无需担心平台风控。
+
+输入你的 handle 或者频道链接即可。
+
 - `@handle`
 - `youtube.com/@handle`
 - `youtube.com/channel/UC...`
 
 #### Bilibili
 
+Bilibili 账号使用未登录的页面获取数据，推荐输入方式是 UID 或者主页链接。
+
+![](https://imgs.innomad.io/blog/20260324170658188.png)
+
+这种方式无需担心平台风控。
+
+
 - UID
 - `https://space.bilibili.com/...`
 
 #### Douyin
 
-- 完整公开用户主页链接
+Douyin 账号使用未登录的页面获取数据，推荐输入方式是完整主页链接或者用户标识。
+
+这种方式无需担心平台风控。
+
+- 完整公开用户主页链接（如下图）
 - 用户标识，例如 `MS4w...`
+
+![](https://imgs.innomad.io/blog/20260324165644407.png)
 
 #### Xiaohongshu
 
-- 完整主页链接
-- 用户 ID
+> ⚠️ 小红书具有较强的风控，最近严打自动化，请谨慎使用，如需使用，推荐登录小号
+
+即：
+URL 填写你的 主页 profile 链接，例如：
+- `https://www.xiaohongshu.com/user/profile/60383492000000000100a467`
+
+然后在点击链接的时候，登录一个小号。
 
 #### 微信公众号
 
-这里不是查询任意公开公众号。
-它会读取当前已连接的公众号后台会话对应的数据。
+公众号比较特殊，个人账号无法使用开发者 API 获取，只能通过浏览器辅助方式获取数据。
 
-你在 FollowerBar 里填写的名称，更像是这个数据源的本地显示名称。
+![](https://imgs.innomad.io/blog/20260324164455716.png)
+
+添加公众号账号时，可以省略名称，进入账号编辑页面（如上图）
+
+因为需要通过浏览器辅助方式获取数据，链接方式默认已经选择，且不能切换。
+
+浏览器辅助需要安装 runtime （Chromium 内核），点击下方的「安装运行时」 按钮就可以安装。
+
+安装完成后，点击「连接浏览器」按钮，FollowerBar 会自动打开一个受控浏览器窗口。扫码登录即可。
+
+> 注：FollowerBar 只会在受控浏览器中获取公众号后台页面数据，不会访问其他页面，也不会获取其他数据。也不会把你的登录状态或数据提供给第三方或者上传到服务器。
 
 ## 4. Provider 模式
+
+本章介绍 FollowerBar 获取数据的不同方式，以及它们的优缺点和适用场景。
+
+如果你不关心技术细节，可以跳过本章，直接使用即可。
 
 ### 4.1 Public Page
 
 含义：
 
-- 不需要 API 凭据
+- 不需要 API 凭据，不需要登录态
 - 直接读取公开页面数据
 
 优点：
 
 - 配置简单
-- 适合大多数普通用户
 
 缺点：
 
 - 平台页面结构变化时可能失效
-- 可能触发反爬或风控
 
 常见平台：
 
@@ -183,6 +238,8 @@ xattr -dr com.apple.quarantine /Applications/FollowerBar.app
 - X Bearer Token
 - YouTube API Key
 
+这种方式只推荐专业用户使用
+
 ### 4.3 Browser-assisted
 
 含义：
@@ -200,11 +257,14 @@ xattr -dr com.apple.quarantine /Applications/FollowerBar.app
 - 比 API 模式更重
 - 浏览器会话可能过期
 - 首次接入成本更高
+- 刷新速度较慢
 
 典型平台：
 
 - Xiaohongshu
 - 微信公众号
+
+这是没有办法的办法了，如果你需要跟踪这些平台的账号，就必须使用浏览器辅助模式。
 
 ## 5. 编辑账号
 

@@ -28,6 +28,7 @@ impl Provider for WechatProvider {
     }
 
     async fn validate_username(&self, username: &str) -> anyhow::Result<bool> {
-        Ok(!username.trim().is_empty())
+        let trimmed = username.trim();
+        Ok(trimmed.is_empty() || trimmed.len() <= 128)
     }
 }

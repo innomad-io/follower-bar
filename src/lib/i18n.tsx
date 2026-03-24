@@ -113,7 +113,10 @@ type MessageKey =
   | "refreshing"
   | "growth_7d"
   | "avg_per_day"
-  | "verify_prompt_xiaohongshu";
+  | "verify_prompt_xiaohongshu"
+  | "wechat_account_label"
+  | "wechat_account_label_placeholder"
+  | "wechat_account_label_copy";
 
 interface I18nContextValue {
   preference: SupportedLocale;
@@ -240,6 +243,10 @@ const messages: Record<Exclude<SupportedLocale, "system">, Record<MessageKey, st
     growth_7d: "7D Growth",
     avg_per_day: "Avg. {delta}/day",
     verify_prompt_xiaohongshu: "Open a visible browser window to complete Xiaohongshu verification?",
+    wechat_account_label: "Local Label",
+    wechat_account_label_placeholder: "Optional local label",
+    wechat_account_label_copy:
+      "WeChat Official Account is identified through the logged-in backend session. This field is only an optional local note.",
   },
   "zh-CN": {
     app_name: "FollowerBar",
@@ -347,6 +354,9 @@ const messages: Record<Exclude<SupportedLocale, "system">, Record<MessageKey, st
     growth_7d: "7日趋势",
     avg_per_day: "平均 {delta}/天",
     verify_prompt_xiaohongshu: "打开可见浏览器窗口以完成小红书验证？",
+    wechat_account_label: "本地备注",
+    wechat_account_label_placeholder: "可选：本地备注名称",
+    wechat_account_label_copy: "微信公众号通过已登录的后台会话识别，这里只是可选的本地备注。",
   },
 };
 

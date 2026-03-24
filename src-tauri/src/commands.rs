@@ -511,6 +511,17 @@ pub async fn add_account(
     provider: String,
     username: String,
 ) -> Result<String, String> {
+    let normalized_username = if provider == "wechat" {
+        let trimmed = username.trim();
+        if trimmed.is_empty() {
+            "__wechat_pending__".to_string()
+        } else {
+            trimmed.to_string()
+        }
+    } else {
+        username.trim().to_string()
+    };
+
     let provider_entry = state
         .providers
         .get(&provider)
@@ -521,7 +532,7 @@ pub async fn add_account(
     }
 
     let is_valid = provider_entry
-        .validate_username(&username)
+        .validate_username(&normalized_username)
         .await
         .map_err(|err| err.to_string())?;
     if !is_valid {
@@ -530,7 +541,7 @@ pub async fn add_account(
 
     let id = Uuid::new_v4().to_string();
     let db = state.db.lock().map_err(|err| err.to_string())?;
-    db.add_account(&id, &provider, &username, None, None, None)
+    db.add_account(&id, &provider, &normalized_username, None, None, None)
         .map_err(|err| err.to_string())?;
     db.ensure_milestones_for_account(&id, 0)
         .map_err(|err| err.to_string())?;
@@ -552,11 +563,6 @@ pub fn update_account(
     display_name: Option<String>,
     provider_method: Option<String>,
 ) -> Result<(), String> {
-    let trimmed_username = username.trim();
-    if trimmed_username.is_empty() {
-        return Err("Account identifier cannot be empty".to_string());
-    }
-
     let trimmed_display_name = display_name
         .as_deref()
         .map(str::trim)
@@ -570,7 +576,23 @@ pub fn update_account(
         .into_iter()
         .find(|item| item.id == account_id)
         .ok_or_else(|| "Account not found".to_string())?;
-    db.update_account_identity(&account_id, trimmed_username, trimmed_display_name.as_deref())
+
+    let normalized_username = if account.provider == "wechat" {
+        let trimmed = username.trim();
+        if trimmed.is_empty() {
+            "__wechat_pending__"
+        } else {
+            trimmed
+        }
+    } else {
+        let trimmed = username.trim();
+        if trimmed.is_empty() {
+            return Err("Account identifier cannot be empty".to_string());
+        }
+        trimmed
+    };
+
+    db.update_account_identity(&account_id, normalized_username, trimmed_display_name.as_deref())
         .map_err(|err| err.to_string())?;
 
     let mut config = AccountConfig::from_json(account.config.as_deref());

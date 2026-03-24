@@ -68,6 +68,15 @@ export function Settings({ onBack }: SettingsProps) {
   const [autostartEnabled, setAutostartEnabled] = useState(false);
   const [settingsError, setSettingsError] = useState<string | null>(null);
 
+  const handleOpenLogs = async () => {
+    try {
+      await openRefreshLogs();
+      setSettingsError(null);
+    } catch (err) {
+      setSettingsError(err instanceof Error ? err.message : String(err));
+    }
+  };
+
   useEffect(() => {
     void Promise.all([getRefreshInterval(), getMilestoneEnabled(), getAutostart()])
       .then(([nextInterval, nextMilestoneEnabled, nextAutostart]) => {
@@ -240,31 +249,15 @@ export function Settings({ onBack }: SettingsProps) {
               GitHub
             </a>
           </div>
-        </section>
-      </main>
-
-      <footer className="bottom-bar refined">
-        <div className="bottom-bar-caption">{t("last_updated_just_now")}</div>
-        <div className="flex items-center gap-2">
           <button
             type="button"
-            onClick={async () => {
-              try {
-                await openRefreshLogs();
-                setSettingsError(null);
-              } catch (err) {
-                setSettingsError(err instanceof Error ? err.message : String(err));
-              }
-            }}
-            className="secondary-button compact"
+            onClick={() => void handleOpenLogs()}
+            className="secondary-button compact settings-about-action"
           >
             {t("view_logs")}
           </button>
-          <button type="button" onClick={onBack} className="primary-button compact">
-            {t("done")}
-          </button>
-        </div>
-      </footer>
+        </section>
+      </main>
     </div>
   );
 }

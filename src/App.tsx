@@ -56,6 +56,13 @@ export default function App() {
     };
   }, []);
 
+  const panelHeightClass =
+    view === "settings"
+      ? "h-[600px]"
+      : view === "account-detail"
+        ? "h-[640px]"
+        : "h-[504px]";
+
   return (
     <main
       className={`app-shell flex h-screen w-screen items-start justify-center overflow-hidden px-7 pb-7 pt-0 text-slate-900 ${
@@ -66,7 +73,7 @@ export default function App() {
             : ""
       }`}
     >
-      <div className="popover-panel h-[504px] w-[376px] overflow-hidden rounded-[10px]">
+      <div className={`popover-panel ${panelHeightClass} w-[376px] overflow-hidden rounded-[10px]`}>
         {view === "list" ? (
           <AccountList
             onOpenSettings={() => setView("settings")}
@@ -87,7 +94,7 @@ export default function App() {
             onCancel={() => setView("list")}
             onAdded={(accountId) => {
               setSelectedAccountId(accountId);
-              setView("list");
+              setView("account-detail");
             }}
           />
         ) : null}

@@ -6,3 +6,4 @@ src-tauri/target/
 .DS_Store
 docs/stitch*/
 docs/stitch*.zip
+exports

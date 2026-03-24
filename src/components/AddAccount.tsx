@@ -72,8 +72,8 @@ export function AddAccount({ onAdded, onCancel }: AddAccountProps) {
       : selectedProvider?.id === "xiaohongshu"
         ? "user/profile URL or user ID"
       : selectedProvider?.id === "wechat"
-        ? "公众号名称或备注标签"
-      : "Handle, username, or profile URL";
+        ? t("wechat_account_label_placeholder")
+        : "Handle, username, or profile URL";
 
   const helperText =
     selectedProvider?.id === "x"
@@ -85,7 +85,7 @@ export function AddAccount({ onAdded, onCancel }: AddAccountProps) {
         : t("add_account_helper_default");
 
   const handleSubmit = async () => {
-    if (!provider || !username.trim()) {
+    if (!provider || (provider !== "wechat" && !username.trim())) {
       return;
     }
 
@@ -111,7 +111,7 @@ export function AddAccount({ onAdded, onCancel }: AddAccountProps) {
         <button
           type="button"
           onClick={() => void handleSubmit()}
-          disabled={saving || !provider || !username.trim()}
+          disabled={saving || !provider || (provider !== "wechat" && !username.trim())}
           className="primary-button compact add-flow-nav-button"
         >
           {t("next")}
@@ -177,7 +177,7 @@ export function AddAccount({ onAdded, onCancel }: AddAccountProps) {
         <button
           type="button"
           onClick={() => void handleSubmit()}
-          disabled={saving || !provider || !username.trim()}
+          disabled={saving || !provider || (provider !== "wechat" && !username.trim())}
           className="primary-button"
         >
           {saving ? t("adding") : t("continue")}
