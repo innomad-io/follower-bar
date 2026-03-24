@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { formatAccountDisplayValue } from "../lib/accountDisplay";
 import { useAccounts } from "../hooks/useAccounts";
 import { useI18n } from "../lib/i18n";
 import {
@@ -11,6 +12,7 @@ import {
   updateAccount,
   verifyXiaohongshuAccount,
 } from "../lib/commands";
+import { providerLabel } from "../lib/providerMeta";
 import type { AdvancedProviderStatus } from "../types";
 
 type ProviderMethod = "public_page" | "official_api" | "browser_link";
@@ -26,25 +28,6 @@ interface ProviderOption {
     | "provider_method_public_page_copy"
     | "provider_method_official_api_copy"
     | "provider_method_browser_link_copy";
-}
-
-function providerName(provider: string) {
-  switch (provider) {
-    case "x":
-      return "X";
-    case "youtube":
-      return "YouTube";
-    case "bilibili":
-      return "Bilibili";
-    case "wechat":
-      return "WeChat";
-    case "xiaohongshu":
-      return "Xiaohongshu";
-    case "douyin":
-      return "Douyin";
-    default:
-      return provider;
-  }
 }
 
 function providerMethodOptions(provider: string): ProviderOption[] {
@@ -214,6 +197,12 @@ export function AccountDetail({
 
   const supportsApiCredential = account.provider === "x" || account.provider === "youtube";
   const supportsBrowserLink = account.provider === "xiaohongshu" || account.provider === "wechat";
+  const isWechat = account.provider === "wechat";
+  const editableUsername = isWechat && username === "__wechat_pending__" ? "" : username;
+  const headerIdentifier =
+    account.display_name?.trim() ||
+    formatAccountDisplayValue(account.provider, editableUsername || account.username) ||
+    t("account");
 
   return (
     <div className="screen-shell">
@@ -223,15 +212,16 @@ export function AccountDetail({
         </button>
         <div className="detail-header-copy">
           <div className="detail-header-kicker">{t("edit_account")}</div>
-          <div className="top-bar-title">
-            {providerName(account.provider)} / {account.username}
+          <div className="top-bar-title">{providerLabel(account.provider)}</div>
+          <div className="detail-header-identifier" title={account.username}>
+            {headerIdentifier}
           </div>
         </div>
         <button
           type="button"
           className="primary-button compact"
           onClick={() => void saveProfile()}
-          disabled={busyAction === "save-profile" || !username.trim()}
+          disabled={busyAction === "save-profile" || (!isWechat && !username.trim())}
         >
           {busyAction === "save-profile" ? t("saving") : t("save")}
         </button>
@@ -253,14 +243,15 @@ export function AccountDetail({
               />
             </label>
             <label className="field-label">
-              <span>{t("account_identifier_url")}</span>
+              <span>{isWechat ? t("wechat_account_label") : t("account_identifier_url")}</span>
               <input
-                value={username}
+                value={editableUsername}
                 onChange={(event) => setUsername(event.target.value)}
-                placeholder={t("handle_url_identifier")}
+                placeholder={isWechat ? t("wechat_account_label_placeholder") : t("handle_url_identifier")}
                 className="sheet-input"
               />
             </label>
+            {isWechat ? <div className="provider-status-note">{t("wechat_account_label_copy")}</div> : null}
           </div>
         </section>
 
@@ -470,20 +461,6 @@ export function AccountDetail({
         </section>
       </main>
 
-      <footer className="bottom-bar refined">
-        <div className="bottom-bar-caption">
-          {account.last_fetched ? t("last_updated_just_now") : t("last_updated_never")}
-        </div>
-        <button type="button" onClick={onBack} className="refresh-link">
-          <svg viewBox="0 0 20 20" aria-hidden="true" className="h-3.5 w-3.5">
-            <path
-              d="M15.49 6.15a.75.75 0 0 1 1.06 0 6.5 6.5 0 1 1-1.2 9.86.75.75 0 1 1 1.2-.9 5 5 0 1 0 .95-7.58V10a.75.75 0 0 1-1.5 0V6.68a.53.53 0 0 1 .53-.53h3.3a.75.75 0 0 1 0 1.5h-2.26a6.54 6.54 0 0 1-1.08-1.5Z"
-              fill="currentColor"
-            />
-          </svg>
-          {t("refresh")}
-        </button>
-      </footer>
     </div>
   );
 }

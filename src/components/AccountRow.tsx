@@ -1,6 +1,8 @@
 import { useState } from "react";
 import { connectAdvancedProvider, refreshAccount, verifyXiaohongshuAccount } from "../lib/commands";
+import { formatAccountDisplayValue } from "../lib/accountDisplay";
 import { useI18n } from "../lib/i18n";
+import { providerLabel } from "../lib/providerMeta";
 import type { AccountWithStats } from "../types";
 import { MiniChart } from "./MiniChart";
 
@@ -42,25 +44,6 @@ function ProviderLogo({ provider }: { provider: string }) {
   return <img src={favicon} alt="" className="provider-logo-image" />;
 }
 
-function providerLabel(provider: string) {
-  switch (provider) {
-    case "x":
-      return "X";
-    case "youtube":
-      return "YouTube";
-    case "bilibili":
-      return "Bilibili";
-    case "xiaohongshu":
-      return "Xiaohongshu";
-    case "douyin":
-      return "Douyin";
-    case "wechat":
-      return "WeChat";
-    default:
-      return provider;
-  }
-}
-
 export function AccountRow({
   account,
   expanded,
@@ -77,6 +60,8 @@ export function AccountRow({
   const { t } = useI18n();
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const displayTitle =
+    account.display_name?.trim() || formatAccountDisplayValue(account.provider, account.username);
 
   const triggerRefresh = async () => {
     setBusy(true);
@@ -129,8 +114,8 @@ export function AccountRow({
               <ProviderLogo provider={account.provider} />
             </div>
             <div className="account-row-copy">
-              <div className="account-row-title">
-                {account.display_name?.trim() || account.username}
+              <div className="account-row-title" title={account.display_name?.trim() ? undefined : account.username}>
+                {displayTitle}
               </div>
               <div className="account-row-subtitle">{providerLabel(account.provider)}</div>
             </div>
