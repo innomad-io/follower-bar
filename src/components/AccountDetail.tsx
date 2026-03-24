@@ -105,6 +105,12 @@ function providerStatusCopyKey(status: AdvancedProviderStatus | null) {
   return "runtime_ready";
 }
 
+function publicPageCopyKey(provider: string) {
+  return provider === "douyin" || provider === "x"
+    ? "public_page_runtime_required"
+    : "public_page_ready";
+}
+
 export function AccountDetail({
   accountId,
   onBack,
@@ -143,7 +149,12 @@ export function AccountDetail({
         const supportsApi = account.provider === "x" || account.provider === "youtube";
         setApiKeyExists(supportsApi ? await getApiKeyExists(account.provider) : false);
 
-        if (account.provider === "xiaohongshu" || account.provider === "wechat") {
+        if (
+          account.provider === "xiaohongshu" ||
+          account.provider === "wechat" ||
+          account.provider === "douyin" ||
+          account.provider === "x"
+        ) {
           setAdvancedStatus(await getAdvancedProviderStatus(account.provider));
         } else {
           setAdvancedStatus(null);
@@ -197,6 +208,8 @@ export function AccountDetail({
 
   const supportsApiCredential = account.provider === "x" || account.provider === "youtube";
   const supportsBrowserLink = account.provider === "xiaohongshu" || account.provider === "wechat";
+  const supportsRuntime =
+    supportsBrowserLink || account.provider === "douyin" || account.provider === "x";
   const isWechat = account.provider === "wechat";
   const editableUsername = isWechat && username === "__wechat_pending__" ? "" : username;
   const headerIdentifier =
@@ -282,10 +295,12 @@ export function AccountDetail({
         <section className="settings-section">
           <div className="provider-actions-header">
             <div className="section-kicker no-margin">{t("provider_actions")}</div>
-            {supportsBrowserLink ? (
+            {supportsRuntime ? (
               <div className="runtime-pill">
                 <span className={`runtime-dot ${advancedStatus?.session_connected ? "active" : ""}`} />
-                {advancedStatus?.session_connected ? t("runtime_running") : t("runtime_idle")}
+                {supportsBrowserLink && advancedStatus?.session_connected
+                  ? t("runtime_running")
+                  : t("runtime_idle")}
               </div>
             ) : null}
           </div>
@@ -424,9 +439,50 @@ export function AccountDetail({
             ) : null}
 
             {providerMethod === "public_page" ? (
-              <div className="provider-status-note">
-                {t("public_page_ready")}
-              </div>
+              supportsRuntime ? (
+                <>
+                  <div className="provider-status-grid">
+                    <div className="status-block">
+                      <span className="status-label">{t("runtime")}</span>
+                      <strong>{advancedStatus?.runtime_installed ? t("installed") : t("not_installed")}</strong>
+                    </div>
+                    <div className="status-block">
+                      <span className="status-label">{t("browser")}</span>
+                      <strong>{advancedStatus?.browser_installed ? t("ready") : t("missing")}</strong>
+                    </div>
+                    <div className="status-block">
+                      <span className="status-label">{t("session")}</span>
+                      <strong>{t("not_required")}</strong>
+                    </div>
+                  </div>
+                  <div className="provider-status-note">{t(publicPageCopyKey(account.provider))}</div>
+                  <div className="inline-actions wrap">
+                    <button
+                      type="button"
+                      className="secondary-button"
+                      disabled={busyAction === "install-runtime"}
+                      onClick={async () => {
+                        setBusyAction("install-runtime");
+                        setMessage(null);
+                        try {
+                          const nextStatus = await installAdvancedProviderRuntime(account.provider);
+                          setAdvancedStatus(nextStatus);
+                        } catch (err) {
+                          setMessage(err instanceof Error ? err.message : String(err));
+                        } finally {
+                          setBusyAction(null);
+                        }
+                      }}
+                    >
+                      {busyAction === "install-runtime" ? t("installing") : t("install_runtime")}
+                    </button>
+                  </div>
+                </>
+              ) : (
+                <div className="provider-status-note">
+                  {t(publicPageCopyKey(account.provider))}
+                </div>
+              )
             ) : null}
           </div>
         </section>

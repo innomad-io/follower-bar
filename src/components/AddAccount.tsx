@@ -80,6 +80,8 @@ export function AddAccount({ onAdded, onCancel }: AddAccountProps) {
       ? t("add_account_helper_x")
       : selectedProvider?.id === "xiaohongshu"
         ? t("add_account_helper_xiaohongshu")
+      : selectedProvider?.id === "douyin"
+        ? t("add_account_helper_douyin")
       : selectedProvider?.id === "wechat"
         ? t("add_account_helper_wechat")
         : t("add_account_helper_default");

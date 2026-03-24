@@ -51,6 +51,7 @@ type MessageKey =
   | "continue"
   | "add_account_helper_x"
   | "add_account_helper_xiaohongshu"
+  | "add_account_helper_douyin"
   | "add_account_helper_wechat"
   | "add_account_helper_default"
   | "back"
@@ -96,6 +97,7 @@ type MessageKey =
   | "missing"
   | "connected"
   | "not_connected"
+  | "not_required"
   | "installing"
   | "install_runtime"
   | "opening"
@@ -104,6 +106,7 @@ type MessageKey =
   | "verifying"
   | "verify_connection"
   | "public_page_ready"
+  | "public_page_runtime_required"
   | "danger_zone"
   | "removing"
   | "remove_account"
@@ -173,6 +176,8 @@ const messages: Record<Exclude<SupportedLocale, "system">, Record<MessageKey, st
       "You can add the account first. Provider method and optional token are configured on the account detail screen.",
     add_account_helper_xiaohongshu:
       "Add the account first, then connect browser-assisted mode from the account detail screen.",
+    add_account_helper_douyin:
+      "Douyin public pages still rely on the local runtime. Add the account first, then install the runtime from the account detail screen.",
     add_account_helper_wechat:
       "This account uses browser-assisted mode. Add it first, then connect WeChat from the account detail screen.",
     add_account_helper_default:
@@ -223,6 +228,7 @@ const messages: Record<Exclude<SupportedLocale, "system">, Record<MessageKey, st
     missing: "Missing",
     connected: "Connected",
     not_connected: "Not connected",
+    not_required: "Not required",
     installing: "Installing...",
     install_runtime: "Install Runtime",
     opening: "Opening...",
@@ -232,6 +238,8 @@ const messages: Record<Exclude<SupportedLocale, "system">, Record<MessageKey, st
     verify_connection: "Verify Connection",
     public_page_ready:
       "Public page mode is ready. Refresh uses the platform's public profile page and does not require extra setup.",
+    public_page_runtime_required:
+      "Public page mode on this platform still requires the local runtime for browser-based fetching.",
     danger_zone: "Danger Zone",
     removing: "Removing...",
     remove_account: "Remove Account",
@@ -290,6 +298,7 @@ const messages: Record<Exclude<SupportedLocale, "system">, Record<MessageKey, st
     continue: "继续",
     add_account_helper_x: "可以先添加账号，再到账号详情页配置 provider 方式和可选 token。",
     add_account_helper_xiaohongshu: "先添加账号，再到账号详情页连接 browser-assisted 模式。",
+    add_account_helper_douyin: "抖音公开页面仍依赖本机运行时抓取。请先添加账号，再到账号详情页安装运行时。",
     add_account_helper_wechat:
       "这个账号使用 browser-assisted 模式。请先添加，再到账号详情页连接微信。",
     add_account_helper_default: "请先添加账号，平台特定的连接配置会出现在账号详情页中。",
@@ -336,6 +345,7 @@ const messages: Record<Exclude<SupportedLocale, "system">, Record<MessageKey, st
     missing: "缺失",
     connected: "已连接",
     not_connected: "未连接",
+    not_required: "不需要",
     installing: "安装中...",
     install_runtime: "安装运行时",
     opening: "打开中...",
@@ -344,6 +354,7 @@ const messages: Record<Exclude<SupportedLocale, "system">, Record<MessageKey, st
     verifying: "验证中...",
     verify_connection: "验证连接",
     public_page_ready: "公开页面模式已就绪。刷新会直接读取平台公开资料页，不需要额外配置。",
+    public_page_runtime_required: "这个平台的公开页面模式仍然依赖本机运行时执行浏览器抓取。",
     danger_zone: "危险区域",
     removing: "删除中...",
     remove_account: "删除账号",
