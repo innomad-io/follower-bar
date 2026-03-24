@@ -1,8 +1,8 @@
 # FollowerBar User Guide
 
-FollowerBar is a macOS menu bar app for monitoring follower counts across multiple platforms.
+FollowerBar is a macOS menu bar app for tracking follower counts across multiple platforms.
 
-It supports different connection methods depending on platform capability:
+Depending on platform capability, FollowerBar uses different connection methods:
 
 - Public Page
 - Official API
@@ -12,7 +12,7 @@ This guide is written for end users.
 
 ## 1. Installation
 
-### 1.1 Homebrew
+### 1.1 Install with Homebrew
 
 First install:
 
@@ -28,23 +28,16 @@ brew update
 brew upgrade --cask followerbar
 ```
 
-To refresh only this tap while testing:
-
-```bash
-brew update-reset innomad-io/tap
-brew upgrade --cask followerbar
-```
-
 ### 1.2 Manual install
 
-1. Open the Releases page of this repository.
-2. Download the `.dmg` for your machine.
-3. Open the disk image.
-4. Drag `FollowerBar.app` into `Applications`.
+1. Open the Releases page of this repository
+2. Download the `.dmg` for your machine
+3. Open the disk image
+4. Drag `FollowerBar.app` into `Applications`
 
 ### 1.3 If macOS says the app is damaged
 
-If the app is not yet signed and notarized by Apple, macOS may block it.
+If the app has not yet been signed and notarized by Apple, macOS may block it.
 
 Temporary workaround:
 
@@ -63,7 +56,7 @@ Or:
 
 ### 2.1 Launch
 
-After launching, FollowerBar appears in the macOS menu bar.
+After launch, FollowerBar appears in the macOS menu bar.
 
 Click the menu bar icon to open the popover.
 
@@ -79,16 +72,16 @@ The main popover shows:
 
 - Click an account row:
   - expands the row
-  - shows a 7-day chart
-  - refreshes that account only
+  - shows the 7-day trend chart
+  - refreshes only that account
 - Use the expanded action area:
   - edit account
-  - verify browser-assisted connection if required
-  - manually refresh
+  - verify browser-assisted connection when needed
+  - manually refresh the current account
 
 ### 2.3 Settings
 
-Global settings are intentionally minimal:
+Global settings include only truly global options:
 
 - refresh interval
 - notifications
@@ -96,7 +89,7 @@ Global settings are intentionally minimal:
 - language
 - view logs
 
-Platform-specific configuration belongs to the account edit screen.
+Platform-specific configuration belongs in the account edit screen.
 
 ## 3. Adding accounts
 
@@ -104,8 +97,8 @@ Platform-specific configuration belongs to the account edit screen.
 
 When adding an account:
 
-1. choose platform
-2. enter a handle, URL, or identifier
+1. choose a platform
+2. enter a handle, URL, or platform identifier
 3. continue
 4. configure provider method later in the account edit screen if needed
 
@@ -130,7 +123,7 @@ When adding an account:
 
 #### Douyin
 
-- full public user URL
+- full public profile URL
 - user identifier such as `MS4w...`
 
 #### Xiaohongshu
@@ -141,9 +134,9 @@ When adding an account:
 #### WeChat Official Account
 
 This does not query arbitrary public accounts.
-It reads the account currently connected through the official account backend session.
+It reads data from the currently connected WeChat Official Account backend session.
 
-The name in FollowerBar acts as the local display name for that source.
+The name you enter in FollowerBar acts as the local display name for that source.
 
 ## 4. Provider modes
 
@@ -152,17 +145,17 @@ The name in FollowerBar acts as the local display name for that source.
 Meaning:
 
 - no API credentials required
-- reads public page data
+- reads data from the public page
 
 Pros:
 
-- easier setup
+- simple setup
 - suitable for most users
 
 Cons:
 
-- may break if the platform changes the page
-- may trigger anti-bot limits
+- may break if the platform changes its page structure
+- may trigger anti-bot or challenge flows
 
 Typical platforms:
 
@@ -175,19 +168,19 @@ Typical platforms:
 
 Meaning:
 
-- uses official API credentials
+- uses official platform API credentials
 
 Pros:
 
-- more structured
+- structured data
 - usually more stable
 
 Cons:
 
-- requires token or API key
-- may have limits or pricing
+- requires a token or API key
+- may have quotas, permissions, or pricing limits
 
-Typical use:
+Typical cases:
 
 - X Bearer Token
 - YouTube API Key
@@ -197,18 +190,18 @@ Typical use:
 Meaning:
 
 - uses a managed browser session
-- suitable for backend pages or strongly protected pages
+- suitable for backend pages or strongly protected platforms
 
 Pros:
 
-- can support platforms that do not offer practical public APIs
-- can reuse authenticated sessions
+- supports platforms that are not practical through direct API access
+- can reuse logged-in sessions
 
 Cons:
 
 - heavier than API mode
-- browser session may expire
-- first setup takes longer
+- browser sessions may expire
+- first-time setup takes longer
 
 Typical platforms:
 
@@ -217,7 +210,7 @@ Typical platforms:
 
 ## 5. Editing accounts
 
-Open the account edit screen from the expanded row actions.
+Open the account edit screen from the action area in the expanded row.
 
 The edit screen includes:
 
@@ -245,9 +238,9 @@ Examples:
 
 ### 5.3 Provider Actions
 
-Depending on platform and method, actions may include:
+Depending on platform and mode, you may see:
 
-- save bearer token
+- save Bearer Token
 - save API key
 - install runtime
 - connect browser
@@ -257,73 +250,75 @@ Depending on platform and method, actions may include:
 
 Removing an account deletes:
 
-- the tracked account entry
-- local historical snapshots for that account
+- the account entry
+- local historical snapshots stored for that account
 
-## 6. Platform-specific notes
+## 6. Platform notes
 
 ### 6.1 X
 
-- If Bearer Token is configured, Official API is preferred.
-- If no token is configured, FollowerBar can use browser-assisted public-page access.
+- If a Bearer Token is configured, Official API is preferred
+- Without a token, it falls back to public page / browser-assisted access
 
 ### 6.2 YouTube
 
-- If API key is configured, Official API is preferred.
-- Otherwise public page mode may be used.
+- If an API key is configured, Official API is preferred
+- Otherwise it can use the public page method
 
 ### 6.3 Bilibili
 
-- Uses public page or public data sources.
-- Input can be UID or profile URL.
+- Primarily uses public pages or public data sources
+- Recommended input is UID or profile URL
 
 ### 6.4 Douyin
 
-- Uses public profile page access.
-- Full profile URL is preferred.
+- Primarily uses the public profile page
+- Recommended input is a full profile URL
 
 ### 6.5 Xiaohongshu
 
-- Browser-assisted mode is recommended.
-- You may need to connect or verify your browser session.
-- If the platform triggers verification, use the row action to verify.
+- Browser-assisted mode is recommended
+- You may need to connect or verify the browser session
+- If the platform triggers verification, use the verify action in the expanded row
+
+> Xiaohongshu has strong anti-bot controls. Use it cautiously. If needed, use a secondary account for login.
 
 ### 6.6 WeChat Official Account
 
-- Browser-assisted mode is used.
-- Log in through the official account backend when prompted.
-- FollowerBar reads the connected account name and total users from the backend page.
+- Uses browser-assisted mode
+- Requires login through the WeChat Official Account backend
+- FollowerBar reads the official account name and total users from the backend page
 
 ## 7. Refresh behavior
 
-- Expanding a row refreshes only that account.
-- Global refresh refreshes all accounts with platform-aware scheduling.
-- Browser-assisted platforms may be cooled down after challenge or session issues.
-- Charts show a 7-day trend.
+- Expanding an account row refreshes only that account
+- Global refresh is scheduled by platform type
+- Browser-assisted platforms may enter cooldown after challenges or session problems
+- Charts show a 7-day trend
 
 ## 8. Logs and troubleshooting
 
-Use `Settings -> View Logs` to inspect refresh logs.
+Use `Settings -> View Logs` to open the refresh logs.
 
-Typical issues:
+Common issues include:
 
-- browser-assisted session missing
+- missing browser-assisted session
 - verification required
-- platform page parse failed
-- API credential invalid
+- platform page parse failure
+- invalid API credentials
 
-If a platform repeatedly fails:
+If a platform keeps failing:
 
-1. open settings or account edit
-2. check provider method
-3. reconnect browser if needed
-4. retry refresh
+1. open settings or the account edit screen
+2. check the provider method
+3. reconnect the browser if needed
+4. refresh again
 
 ## 9. Language
 
-FollowerBar supports interface language selection in settings.
+FollowerBar supports switching interface language in settings.
 
-You can choose:
+Currently supported:
 
 - English
 - 简体中文
@@ -340,4 +335,3 @@ You can also remove:
 
 - `~/Library/Application Support/io.innomad.followbar`
 - `~/Library/Preferences/io.innomad.followbar.plist`
-

@@ -73,7 +73,7 @@ brew upgrade --cask followerbar
 
 完整用户指南见：
 
-- [docs/USER_GUIDE.md](./docs/USER_GUIDE.md)
+- [docs/USER_GUIDE_CN.md](./docs/USER_GUIDE_CN.md)
 
 ## 许可证
 

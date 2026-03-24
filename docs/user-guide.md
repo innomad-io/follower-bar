@@ -2,7 +2,7 @@
 
 完整文档已迁移到：
 
-- [USER_GUIDE.md](./USER_GUIDE.md)
+- [USER_GUIDE_CN.md](./USER_GUIDE_CN.md)
 - WeChat Official Account：
   - Browser-assisted
 
