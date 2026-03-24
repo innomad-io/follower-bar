@@ -170,7 +170,7 @@ select {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  color: var(--primary);
+  flex-shrink: 0;
 }
 
 .brand-mark {
@@ -1065,6 +1065,12 @@ select {
 .settings-about-copy {
   font-size: 12px;
   line-height: 1.5;
+  color: var(--text-secondary);
+}
+
+.settings-about-version {
+  font-size: 12px;
+  font-weight: 600;
   color: var(--text-secondary);
 }
 

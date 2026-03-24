@@ -6,6 +6,8 @@ use crate::providers::ProviderManager;
 use chrono::Utc;
 use futures::stream::{self, StreamExt};
 use serde::Serialize;
+use std::fs::{self, OpenOptions};
+use std::io::Write;
 use std::process::Command;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
@@ -78,6 +80,23 @@ pub struct RefreshSummary {
 
 const MIN_REFRESH_INTERVAL_SECONDS: i64 = 45;
 const LIGHT_REFRESH_CONCURRENCY: usize = 3;
+
+fn append_refresh_error_log(app: &tauri::AppHandle, message: &str) {
+    let Some(app_data_dir) = app.path().app_data_dir().ok() else {
+        return;
+    };
+
+    let logs_dir = app_data_dir.join("advanced-runtime").join("logs");
+    if fs::create_dir_all(&logs_dir).is_err() {
+        return;
+    }
+
+    let log_path = logs_dir.join("refresh-errors.log");
+    let timestamp = Utc::now().to_rfc3339();
+    if let Ok(mut file) = OpenOptions::new().create(true).append(true).open(log_path) {
+        let _ = writeln!(file, "[{timestamp}] {message}");
+    }
+}
 
 enum RefreshOutcome {
     Refreshed,
@@ -670,6 +689,7 @@ pub async fn do_refresh_all(
                     "failed to fetch provider={} username={}: {}",
                     account.provider, account.username, err
                 );
+                append_refresh_error_log(app, &err);
                 failed_accounts.push(err);
             }
         }
@@ -709,8 +729,12 @@ pub async fn refresh_account(
             .ok_or_else(|| "Account not found".to_string())?
     };
 
-    match refresh_single_account_internal(&state, &app, &account).await? {
-        RefreshOutcome::Refreshed | RefreshOutcome::Skipped => Ok(()),
+    match refresh_single_account_internal(&state, &app, &account).await {
+        Ok(RefreshOutcome::Refreshed | RefreshOutcome::Skipped) => Ok(()),
+        Err(err) => {
+            append_refresh_error_log(&app, &err);
+            Err(err)
+        }
     }
 }
 

@@ -77,4 +77,6 @@ brew upgrade --cask followerbar
 
 ## 许可证
 
-本项目使用 MIT License。
+本项目采用 GNU General Public License v3.0 或更高版本（GPL-3.0-or-later）。
+
+如果你分发基于 FollowerBar 修改后的版本，你也必须按照 GPL 提供对应源码。

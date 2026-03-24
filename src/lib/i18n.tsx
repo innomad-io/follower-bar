@@ -36,6 +36,7 @@ type MessageKey =
   | "language_copy"
   | "view_logs"
   | "view_logs_copy"
+  | "version_label"
   | "done"
   | "minimal_global_settings"
   | "refreshing_accounts"
@@ -158,6 +159,7 @@ const messages: Record<Exclude<SupportedLocale, "system">, Record<MessageKey, st
     language_copy: "Choose the interface language or follow the macOS system setting.",
     view_logs: "View Logs",
     view_logs_copy: "Open the refresh log folder for troubleshooting.",
+    version_label: "Version",
     done: "Done",
     minimal_global_settings: "Minimal global settings only",
     refreshing_accounts: "Refreshing accounts...",
@@ -283,6 +285,7 @@ const messages: Record<Exclude<SupportedLocale, "system">, Record<MessageKey, st
     language_copy: "选择界面语言，或跟随 macOS 系统设置。",
     view_logs: "查看日志",
     view_logs_copy: "打开刷新日志目录，便于排查问题。",
+    version_label: "版本",
     done: "完成",
     minimal_global_settings: "仅保留全局设置",
     refreshing_accounts: "正在刷新账号...",

@@ -79,4 +79,6 @@ For the complete user guide, see:
 
 ## License
 
-This project is licensed under the MIT License.
+This project is licensed under the GNU General Public License v3.0 or later (GPL-3.0-or-later).
+
+If you distribute a modified version of FollowerBar, you must also provide the corresponding source code under the GPL.

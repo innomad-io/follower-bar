@@ -4,6 +4,7 @@ version = "0.1.15"
 description = "Mac menubar follower tracker built with Tauri"
 authors = ["innomad"]
 edition = "2021"
+license = "GPL-3.0-or-later"
 
 [lib]
 name = "followbar_lib"
