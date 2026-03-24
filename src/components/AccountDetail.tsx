@@ -17,9 +17,15 @@ type ProviderMethod = "public_page" | "official_api" | "browser_link";
 
 interface ProviderOption {
   id: ProviderMethod;
-  label: string;
+  labelKey:
+    | "provider_method_public_page"
+    | "provider_method_official_api"
+    | "provider_method_browser_link";
   icon: string;
-  description: string;
+  descriptionKey:
+    | "provider_method_public_page_copy"
+    | "provider_method_official_api_copy"
+    | "provider_method_browser_link_copy";
 }
 
 function providerName(provider: string) {
@@ -48,17 +54,15 @@ function providerMethodOptions(provider: string): ProviderOption[] {
       return [
         {
           id: "public_page",
-          label: "Public Page",
+          labelKey: "provider_method_public_page",
           icon: "◌",
-          description:
-            "Monitor from the public profile page. No API quota required.",
+          descriptionKey: "provider_method_public_page_copy",
         },
         {
           id: "official_api",
-          label: "Official API",
+          labelKey: "provider_method_official_api",
           icon: "◇",
-          description:
-            "Use the platform API with your own credential for more reliable fetches.",
+          descriptionKey: "provider_method_official_api_copy",
         },
       ];
     case "bilibili":
@@ -66,9 +70,9 @@ function providerMethodOptions(provider: string): ProviderOption[] {
       return [
         {
           id: "public_page",
-          label: "Public Page",
+          labelKey: "provider_method_public_page",
           icon: "◌",
-          description: "Fetch from the public profile page.",
+          descriptionKey: "provider_method_public_page_copy",
         },
       ];
     case "xiaohongshu":
@@ -76,47 +80,46 @@ function providerMethodOptions(provider: string): ProviderOption[] {
       return [
         {
           id: "browser_link",
-          label: "Browser Link",
+          labelKey: "provider_method_browser_link",
           icon: "↗",
-          description:
-            "Use the browser-assisted runtime and session managed on this Mac.",
+          descriptionKey: "provider_method_browser_link_copy",
         },
       ];
     default:
       return [
         {
           id: "public_page",
-          label: "Public Page",
+          labelKey: "provider_method_public_page",
           icon: "◌",
-          description: "Fetch from the public profile page.",
+          descriptionKey: "provider_method_public_page_copy",
         },
       ];
   }
 }
 
-function providerMethodDescription(provider: string, method: ProviderMethod) {
+function providerMethodDescriptionKey(provider: string, method: ProviderMethod) {
   const option = providerMethodOptions(provider).find((item) => item.id === method);
-  return option?.description ?? "";
+  return option?.descriptionKey ?? "provider_method_public_page_copy";
 }
 
-function providerStatusCopy(status: AdvancedProviderStatus | null) {
+function providerStatusCopyKey(status: AdvancedProviderStatus | null) {
   if (!status) {
-    return "Provider actions are not required for this method.";
+    return "provider_actions_not_required";
   }
 
   if (!status.runtime_installed) {
-    return "Runtime is not installed yet.";
+    return "runtime_not_installed";
   }
 
   if (!status.browser_installed) {
-    return "Browser runtime is missing.";
+    return "runtime_browser_missing";
   }
 
   if (!status.session_connected) {
-    return "Browser session is not connected.";
+    return "runtime_session_not_connected";
   }
 
-  return "Runtime is ready.";
+  return "runtime_ready";
 }
 
 export function AccountDetail({
@@ -173,18 +176,18 @@ export function AccountDetail({
       <div className="screen-shell">
         <header className="top-bar with-divider">
           <button type="button" onClick={onBack} className="ghost-button compact">
-            Back
+            {t("back")}
           </button>
           <div className="detail-header-copy">
-            <div className="detail-header-kicker">Edit Account</div>
-            <div className="top-bar-title">Account</div>
+            <div className="detail-header-kicker">{t("edit_account")}</div>
+            <div className="top-bar-title">{t("account")}</div>
           </div>
           <button type="button" onClick={onBack} className="primary-button compact">
             {t("done")}
           </button>
         </header>
         <main className="screen-content settings-content">
-          <div className="empty-state-card">Account not found.</div>
+          <div className="empty-state-card">{t("account_not_found")}</div>
         </main>
       </div>
     );
@@ -215,11 +218,11 @@ export function AccountDetail({
   return (
     <div className="screen-shell">
       <header className="top-bar with-divider">
-        <button type="button" onClick={onBack} className="ghost-button compact">
-          Back
+          <button type="button" onClick={onBack} className="ghost-button compact">
+          {t("back")}
         </button>
         <div className="detail-header-copy">
-          <div className="detail-header-kicker">Edit Account</div>
+          <div className="detail-header-kicker">{t("edit_account")}</div>
           <div className="top-bar-title">
             {providerName(account.provider)} / {account.username}
           </div>
@@ -230,7 +233,7 @@ export function AccountDetail({
           onClick={() => void saveProfile()}
           disabled={busyAction === "save-profile" || !username.trim()}
         >
-          {busyAction === "save-profile" ? "Saving..." : "Save"}
+          {busyAction === "save-profile" ? t("saving") : t("save")}
         </button>
       </header>
 
@@ -238,23 +241,23 @@ export function AccountDetail({
         {message ? <div className="error-banner">{message}</div> : null}
 
         <section className="settings-section">
-          <div className="section-kicker">Basic Info</div>
+          <div className="section-kicker">{t("basic_info")}</div>
           <div className="settings-card stacked-form">
             <label className="field-label">
-              <span>Display Name</span>
+              <span>{t("display_name")}</span>
               <input
                 value={displayName}
                 onChange={(event) => setDisplayName(event.target.value)}
-                placeholder="Optional display name"
+                placeholder={t("optional_display_name")}
                 className="sheet-input"
               />
             </label>
             <label className="field-label">
-              <span>Account Identifier / URL</span>
+              <span>{t("account_identifier_url")}</span>
               <input
                 value={username}
                 onChange={(event) => setUsername(event.target.value)}
-                placeholder="Handle, URL, or identifier"
+                placeholder={t("handle_url_identifier")}
                 className="sheet-input"
               />
             </label>
@@ -262,7 +265,7 @@ export function AccountDetail({
         </section>
 
         <section className="settings-section">
-          <div className="section-kicker">Connection &amp; Provider</div>
+          <div className="section-kicker">{t("connection_provider")}</div>
           <div className="provider-method-grid">
             {providerMethodOptions(account.provider).map((option) => (
               <button
@@ -276,22 +279,22 @@ export function AccountDetail({
                 <span className="provider-method-icon" aria-hidden="true">
                   {option.icon}
                 </span>
-                <span className="provider-method-label">{option.label}</span>
+                <span className="provider-method-label">{t(option.labelKey)}</span>
               </button>
             ))}
           </div>
           <p className="provider-method-copy">
-            {providerMethodDescription(account.provider, providerMethod)}
+            {t(providerMethodDescriptionKey(account.provider, providerMethod))}
           </p>
         </section>
 
         <section className="settings-section">
           <div className="provider-actions-header">
-            <div className="section-kicker no-margin">Provider Actions</div>
+            <div className="section-kicker no-margin">{t("provider_actions")}</div>
             {supportsBrowserLink ? (
               <div className="runtime-pill">
                 <span className={`runtime-dot ${advancedStatus?.session_connected ? "active" : ""}`} />
-                {advancedStatus?.session_connected ? "Runtime: Running" : "Runtime: Idle"}
+                {advancedStatus?.session_connected ? t("runtime_running") : t("runtime_idle")}
               </div>
             ) : null}
           </div>
@@ -301,8 +304,8 @@ export function AccountDetail({
               <>
                 <label className="field-label">
                   <div className="field-label-row">
-                    <span>{account.provider === "x" ? "Bearer Token" : "API Key"}</span>
-                    {apiKeyExists ? <span className="field-label-action">Renew</span> : null}
+                    <span>{account.provider === "x" ? t("bearer_token") : t("api_key")}</span>
+                    {apiKeyExists ? <span className="field-label-action">{t("renew")}</span> : null}
                   </div>
                   <input
                     type="password"
@@ -311,11 +314,11 @@ export function AccountDetail({
                     placeholder={
                       apiKeyExists
                         ? account.provider === "x"
-                          ? "Replace bearer token"
-                          : "Replace API key"
+                          ? t("replace_bearer_token")
+                          : t("replace_api_key")
                         : account.provider === "x"
-                          ? "Enter bearer token"
-                          : "Enter API key"
+                          ? t("enter_bearer_token")
+                          : t("enter_api_key")
                     }
                     className="sheet-input"
                   />
@@ -341,7 +344,7 @@ export function AccountDetail({
                     }
                   }}
                 >
-                  {busyAction === "save-token" ? "Saving..." : "Save Credential"}
+                  {busyAction === "save-token" ? t("saving") : t("save_credential")}
                 </button>
               </>
             ) : null}
@@ -350,19 +353,19 @@ export function AccountDetail({
               <>
                 <div className="provider-status-grid">
                   <div className="status-block">
-                    <span className="status-label">Runtime</span>
-                    <strong>{advancedStatus?.runtime_installed ? "Installed" : "Not installed"}</strong>
+                    <span className="status-label">{t("runtime")}</span>
+                    <strong>{advancedStatus?.runtime_installed ? t("installed") : t("not_installed")}</strong>
                   </div>
                   <div className="status-block">
-                    <span className="status-label">Browser</span>
-                    <strong>{advancedStatus?.browser_installed ? "Ready" : "Missing"}</strong>
+                    <span className="status-label">{t("browser")}</span>
+                    <strong>{advancedStatus?.browser_installed ? t("ready") : t("missing")}</strong>
                   </div>
                   <div className="status-block">
-                    <span className="status-label">Session</span>
-                    <strong>{advancedStatus?.session_connected ? "Connected" : "Not connected"}</strong>
+                    <span className="status-label">{t("session")}</span>
+                    <strong>{advancedStatus?.session_connected ? t("connected") : t("not_connected")}</strong>
                   </div>
                 </div>
-                <div className="provider-status-note">{providerStatusCopy(advancedStatus)}</div>
+                <div className="provider-status-note">{t(providerStatusCopyKey(advancedStatus))}</div>
                 <div className="inline-actions wrap">
                   <button
                     type="button"
@@ -381,7 +384,7 @@ export function AccountDetail({
                       }
                     }}
                   >
-                    {busyAction === "install-runtime" ? "Installing..." : "Install Runtime"}
+                    {busyAction === "install-runtime" ? t("installing") : t("install_runtime")}
                   </button>
                   <button
                     type="button"
@@ -401,7 +404,7 @@ export function AccountDetail({
                       }
                     }}
                   >
-                    {busyAction === "connect-browser" ? "Opening..." : "Connect Browser"}
+                    {busyAction === "connect-browser" ? t("opening") : t("connect_browser")}
                   </button>
                   {account.provider === "xiaohongshu" ? (
                     <button
@@ -414,7 +417,7 @@ export function AccountDetail({
                         try {
                           await verifyXiaohongshuAccount(account.id);
                           await refresh();
-                          setMessage("Verification complete");
+                          setMessage(t("verification_complete"));
                         } catch (err) {
                           setMessage(err instanceof Error ? err.message : String(err));
                         } finally {
@@ -422,7 +425,7 @@ export function AccountDetail({
                         }
                       }}
                     >
-                      {busyAction === "verify-browser" ? "Verifying..." : "Verify Connection"}
+                      {busyAction === "verify-browser" ? t("verifying") : t("verify_connection")}
                     </button>
                   ) : null}
                 </div>
@@ -431,15 +434,14 @@ export function AccountDetail({
 
             {providerMethod === "public_page" ? (
               <div className="provider-status-note">
-                Public page mode is ready. Refresh uses the platform&apos;s public profile page and
-                does not require extra setup.
+                {t("public_page_ready")}
               </div>
             ) : null}
           </div>
         </section>
 
         <section className="settings-section danger-zone">
-          <div className="section-kicker">Danger Zone</div>
+          <div className="section-kicker">{t("danger_zone")}</div>
           <div className="settings-card stacked-form">
             <button
               type="button"
@@ -459,11 +461,10 @@ export function AccountDetail({
                 }
               }}
             >
-              {busyAction === "remove-account" ? "Removing..." : "Remove Account"}
+              {busyAction === "remove-account" ? t("removing") : t("remove_account")}
             </button>
             <div className="danger-copy">
-              Removing this account will stop all background monitoring and delete historical data
-              stored for this identifier.
+              {t("remove_account_copy")}
             </div>
           </div>
         </section>

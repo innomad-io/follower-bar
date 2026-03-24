@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { addAccount, getAvailableProviders } from "../lib/commands";
+import { useI18n } from "../lib/i18n";
 import type { ProviderInfo } from "../types";
 
 interface AddAccountProps {
@@ -16,16 +17,26 @@ const PROVIDER_LABELS: Record<string, string> = {
   wechat: "WeChat",
 };
 
-const PROVIDER_GLYPHS: Record<string, string> = {
-  x: "𝕏",
-  youtube: "▶",
-  bilibili: "◉",
-  xiaohongshu: "✦",
-  douyin: "♬",
-  wechat: "◔",
+const PROVIDER_FAVICONS: Record<string, string> = {
+  youtube: "https://www.youtube.com/favicon.ico",
+  x: "https://x.com/favicon.ico",
+  bilibili: "https://www.bilibili.com/favicon.ico",
+  wechat: "https://res.wx.qq.com/a/wx_fed/assets/res/NTI4MWU5.ico",
+  xiaohongshu: "https://www.xiaohongshu.com/favicon.ico",
+  douyin: "https://www.douyin.com/favicon.ico",
 };
 
+function ProviderLogo({ provider }: { provider: string }) {
+  const favicon = PROVIDER_FAVICONS[provider];
+  if (!favicon) {
+    return <span className="provider-badge-fallback">{PROVIDER_LABELS[provider]?.slice(0, 1) ?? "•"}</span>;
+  }
+
+  return <img src={favicon} alt="" className="provider-logo-image" />;
+}
+
 export function AddAccount({ onAdded, onCancel }: AddAccountProps) {
+  const { t } = useI18n();
   const [providers, setProviders] = useState<ProviderInfo[]>([]);
   const [provider, setProvider] = useState("");
   const [username, setUsername] = useState("");
@@ -66,12 +77,12 @@ export function AddAccount({ onAdded, onCancel }: AddAccountProps) {
 
   const helperText =
     selectedProvider?.id === "x"
-      ? "You can add the account first. Provider method and optional token are configured on the account detail screen."
+      ? t("add_account_helper_x")
       : selectedProvider?.id === "xiaohongshu"
-        ? "Add the account first, then connect browser-assisted mode from the account detail screen."
+        ? t("add_account_helper_xiaohongshu")
       : selectedProvider?.id === "wechat"
-        ? "This account uses browser-assisted mode. Add it first, then connect WeChat from the account detail screen."
-        : "Add the account first. Platform-specific connection details appear on the account detail screen.";
+        ? t("add_account_helper_wechat")
+        : t("add_account_helper_default");
 
   const handleSubmit = async () => {
     if (!provider || !username.trim()) {
@@ -93,17 +104,17 @@ export function AddAccount({ onAdded, onCancel }: AddAccountProps) {
   return (
     <div className="screen-shell add-flow-shell">
       <header className="top-bar with-divider">
-        <button type="button" onClick={onCancel} className="text-[13px] font-medium text-[#2364e6]">
-          Cancel
+        <button type="button" onClick={onCancel} className="secondary-button compact add-flow-nav-button">
+          {t("cancel")}
         </button>
-        <div className="top-bar-title centered">Add Account</div>
+        <div className="top-bar-title centered">{t("add_account")}</div>
         <button
           type="button"
           onClick={() => void handleSubmit()}
           disabled={saving || !provider || !username.trim()}
-          className="text-[13px] font-medium text-[#2364e6] disabled:text-[#b7c0ca]"
+          className="primary-button compact add-flow-nav-button"
         >
-          Next
+          {t("next")}
         </button>
       </header>
 
@@ -114,10 +125,10 @@ export function AddAccount({ onAdded, onCancel }: AddAccountProps) {
       <main className="screen-content add-flow-content">
         <section className="mb-5">
           <div className="mb-1 text-[20px] font-bold tracking-[-0.04em] text-slate-900">
-            Choose Platform
+            {t("choose_platform")}
           </div>
           <p className="text-[13px] leading-5 text-[#6f7882]">
-            Select the platform first. FollowerBar will show the right provider options after the account is added.
+            {t("choose_platform_copy")}
           </p>
         </section>
 
@@ -131,7 +142,9 @@ export function AddAccount({ onAdded, onCancel }: AddAccountProps) {
                 onClick={() => setProvider(item.id)}
                 className={`platform-card ${selected ? "selected" : ""}`}
               >
-                <div className="platform-card-icon">{PROVIDER_GLYPHS[item.id] ?? "•"}</div>
+                <div className="platform-card-icon">
+                  <ProviderLogo provider={item.id} />
+                </div>
                 <div className="platform-card-label">{PROVIDER_LABELS[item.id] ?? item.name}</div>
               </button>
             );
@@ -140,7 +153,7 @@ export function AddAccount({ onAdded, onCancel }: AddAccountProps) {
 
         <div className="mt-6">
           <div className="mb-2 pl-1 text-[11px] font-bold uppercase tracking-[0.16em] text-[#7d8690]">
-            Account Identifier
+            {t("account_identifier")}
           </div>
           <input
             value={username}
@@ -160,14 +173,14 @@ export function AddAccount({ onAdded, onCancel }: AddAccountProps) {
       </main>
 
       <footer className="bottom-bar">
-        <div className="bottom-bar-caption">Next: provider method</div>
+        <div className="bottom-bar-caption">{t("next_provider_method")}</div>
         <button
           type="button"
           onClick={() => void handleSubmit()}
           disabled={saving || !provider || !username.trim()}
           className="primary-button"
         >
-          {saving ? "Adding..." : "Continue"}
+          {saving ? t("adding") : t("continue")}
         </button>
       </footer>
     </div>

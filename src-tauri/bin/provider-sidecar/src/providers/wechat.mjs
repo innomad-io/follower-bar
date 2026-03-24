@@ -97,8 +97,20 @@ export async function fetchProfile(payload) {
       };
     }
 
-    const bodyText = await page.evaluate(() => document.body?.innerText ?? "");
-    const profile = __test_extractWechatProfile(bodyText);
+    const extracted = await page.evaluate(() => {
+      const bodyText = document.body?.innerText ?? "";
+      const nickname =
+        document.querySelector(".acount_box-nickname")?.textContent?.trim() ||
+        document.querySelector(".weui-desktop_name")?.textContent?.trim() ||
+        "";
+
+      return {
+        bodyText,
+        nickname,
+      };
+    });
+
+    const profile = __test_extractWechatProfile(extracted);
     if (!profile) {
       return {
         ok: false,
@@ -190,7 +202,36 @@ export function __test_normalizeWechatAdminUrl(input) {
   return HOME_URL;
 }
 
-export function __test_extractWechatProfile(bodyText) {
+function extractNicknameFromText(bodyText) {
+  const lines = bodyText
+    .split("\n")
+    .map((line) => line.trim())
+    .filter(Boolean);
+  const totalIndex = lines.findIndex((line) =>
+    line.includes("总用户数") || line.includes("累计用户数") || line.includes("累计关注人数")
+  );
+  if (totalIndex > 0) {
+    const candidate = lines[totalIndex - 1];
+    if (
+      candidate &&
+      !candidate.includes("公众号") &&
+      !candidate.includes("首页") &&
+      !candidate.includes("内容管理") &&
+      !candidate.includes("互动管理")
+    ) {
+      return candidate;
+    }
+  }
+  return null;
+}
+
+export function __test_extractWechatProfile(input) {
+  const bodyText =
+    typeof input === "string" ? input : String(input?.bodyText ?? "");
+  const explicitNickname =
+    typeof input === "object" && input !== null
+      ? String(input.nickname ?? "").trim()
+      : "";
   const patterns = [
     /总用户数\s*([0-9,]+)/,
     /累计用户数\s*([0-9,]+)/,
@@ -201,10 +242,12 @@ export function __test_extractWechatProfile(bodyText) {
     const match = bodyText.match(pattern);
     const followers = parseFollowers(match?.[1] ?? "");
     if (followers !== null) {
+      const displayName =
+        explicitNickname || extractNicknameFromText(bodyText) || "微信公众号";
       return {
-        displayName: "微信公众号",
-        username: "微信公众号",
-        resolvedId: "wechat-admin",
+        displayName,
+        username: displayName,
+        resolvedId: displayName,
         followers,
       };
     }

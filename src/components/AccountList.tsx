@@ -148,50 +148,46 @@ export function AccountList({
 
       <footer className="bottom-bar refined">
         <div className="bottom-bar-caption">{footerLabel}</div>
-        <button
-          type="button"
-          disabled={isRefreshing}
-          onClick={async () => {
-            setIsRefreshing(true);
-            setRefreshSummary(null);
-            try {
-              const summary = await refreshAll();
-              await refresh();
-              const nextError =
-                summary.failed_accounts.length > 0
-                  ? summary.failed_accounts.join(" | ")
-                  : null;
-              setRefreshError(nextError);
-              setRefreshSummary(
-                summary.failed_accounts.length > 0
-                  ? t("refresh_summary_failed", {
-                      refreshed: summary.refreshed_accounts,
-                      skipped: summary.skipped_accounts,
-                      failed: summary.failed_accounts.length,
-                    })
-                  : t("refresh_summary", {
-                      refreshed: summary.refreshed_accounts,
-                      skipped: summary.skipped_accounts,
-                    })
-              );
-            } catch (err) {
-              const message = err instanceof Error ? err.message : String(err);
-              setRefreshError(message);
+        <div className="bottom-bar-actions">
+          <button
+            type="button"
+            disabled={isRefreshing}
+            onClick={async () => {
+              setIsRefreshing(true);
               setRefreshSummary(null);
-            } finally {
-              setIsRefreshing(false);
-            }
-          }}
-          className="refresh-link"
-        >
-          <svg viewBox="0 0 20 20" aria-hidden="true" className="h-3.5 w-3.5">
-            <path
-              d="M15.49 6.15a.75.75 0 0 1 1.06 0 6.5 6.5 0 1 1-1.2 9.86.75.75 0 1 1 1.2-.9 5 5 0 1 0 .95-7.58V10a.75.75 0 0 1-1.5 0V6.68a.53.53 0 0 1 .53-.53h3.3a.75.75 0 0 1 0 1.5h-2.26a6.54 6.54 0 0 1-1.08-1.5Z"
-              fill="currentColor"
-            />
-          </svg>
-          {isRefreshing ? t("refreshing_accounts") : t("refresh")}
-        </button>
+              try {
+                const summary = await refreshAll();
+                await refresh();
+                const nextError =
+                  summary.failed_accounts.length > 0
+                    ? summary.failed_accounts.join(" | ")
+                    : null;
+                setRefreshError(nextError);
+                setRefreshSummary(
+                  summary.failed_accounts.length > 0
+                    ? t("refresh_summary_failed", {
+                        refreshed: summary.refreshed_accounts,
+                        skipped: summary.skipped_accounts,
+                        failed: summary.failed_accounts.length,
+                      })
+                    : t("refresh_summary", {
+                        refreshed: summary.refreshed_accounts,
+                        skipped: summary.skipped_accounts,
+                      })
+                );
+              } catch (err) {
+                const message = err instanceof Error ? err.message : String(err);
+                setRefreshError(message);
+                setRefreshSummary(null);
+              } finally {
+                setIsRefreshing(false);
+              }
+            }}
+            className="refresh-button compact"
+          >
+            {t("refresh")}
+          </button>
+        </div>
       </footer>
     </div>
   );

@@ -220,11 +220,31 @@ export function Settings({ onBack }: SettingsProps) {
             <AppIconMark />
           </div>
           <div className="text-[14px] font-semibold text-slate-800">FollowerBar</div>
+          <div className="settings-about-copy">
+            Made by{" "}
+            <a
+              href="https://x.com/innomad_io"
+              target="_blank"
+              rel="noreferrer"
+              className="settings-about-link"
+            >
+              Innomad (X: innomad_io)
+            </a>
+            {" · "}
+            <a
+              href="https://github.com/innomad-io/follower-bar"
+              target="_blank"
+              rel="noreferrer"
+              className="settings-about-link"
+            >
+              GitHub
+            </a>
+          </div>
         </section>
       </main>
 
       <footer className="bottom-bar refined">
-        <div className="bottom-bar-caption">Last updated: Just now</div>
+        <div className="bottom-bar-caption">{t("last_updated_just_now")}</div>
         <div className="flex items-center gap-2">
           <button
             type="button"

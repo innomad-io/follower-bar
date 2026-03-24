@@ -6,7 +6,6 @@ const {
   GITHUB_REPOSITORY,
   GITHUB_TOKEN,
   RELEASE_TAG,
-  RELEASES_REPOSITORY,
   TAP_DIR = ".tap",
   HOMEBREW_CASK_NAME = "followerbar",
   PRODUCT_NAME = "FollowerBar",
@@ -17,7 +16,6 @@ if (!GITHUB_REPOSITORY || !GITHUB_TOKEN || !RELEASE_TAG) {
 }
 
 const [owner, repo] = GITHUB_REPOSITORY.split("/");
-const [releaseOwner, releaseRepo] = (RELEASES_REPOSITORY || GITHUB_REPOSITORY).split("/");
 const version = RELEASE_TAG.replace(/^v/, "");
 const caskDir = join(TAP_DIR, "Casks");
 const caskPath = join(caskDir, `${HOMEBREW_CASK_NAME}.rb`);
@@ -45,7 +43,7 @@ async function downloadAndSha256(asset) {
       Authorization: `Bearer ${GITHUB_TOKEN}`,
       Accept: "application/octet-stream",
       "X-GitHub-Api-Version": "2022-11-28",
-      "User-Agent": `${releaseRepo}-release-bot`,
+      "User-Agent": `${repo}-release-bot`,
     },
   });
   if (!response.ok) {
@@ -102,7 +100,7 @@ end
 `;
 }
 
-const release = await github(`/repos/${releaseOwner}/${releaseRepo}/releases/tags/${RELEASE_TAG}`);
+const release = await github(`/repos/${owner}/${repo}/releases/tags/${RELEASE_TAG}`);
 const dmgAssets = release.assets.filter((asset) => asset.name.endsWith(".dmg"));
 
 if (dmgAssets.length < 2) {

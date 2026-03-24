@@ -4,8 +4,7 @@ This repository is configured for tag-based macOS releases and Homebrew cask upd
 
 Current distribution layout:
 
-- source code repository: `innomad-io/follower-bar` (private)
-- public binary release repository: `innomad-io/followerbar-releases`
+- source code repository: `innomad-io/follower-bar` (public)
 - Homebrew tap repository: `innomad-io/homebrew-tap`
 
 ## Release flow
@@ -23,7 +22,7 @@ git push origin v0.1.1
 
 3. GitHub Actions will:
    - build Intel and Apple Silicon macOS bundles
-   - publish the binaries to the public release repository
+   - publish the binaries to this repository's GitHub Releases
    - upload DMG artifacts
    - update the Homebrew tap cask
 
@@ -37,8 +36,6 @@ Tap update script:
 
 - `HOMEBREW_TAP_TOKEN`
   - A GitHub token that can push to the tap repository.
-- `RELEASES_REPO_TOKEN`
-  - A GitHub token that can create releases and upload assets to `innomad-io/followerbar-releases`.
 
 ### How to create `HOMEBREW_TAP_TOKEN`
 
@@ -70,24 +67,6 @@ Recommended: create a fine-grained personal access token.
 
 Classic PAT also works, but fine-grained PAT is the cleaner choice.
 
-### How to create `RELEASES_REPO_TOKEN`
-
-Recommended: another fine-grained personal access token.
-
-1. Open GitHub:
-   - `Settings`
-   - `Developer settings`
-   - `Personal access tokens`
-   - `Fine-grained tokens`
-   - `Generate new token`
-2. Repository access:
-   - `Only select repositories`
-   - select `innomad-io/followerbar-releases`
-3. Repository permissions:
-   - `Contents: Read and write`
-4. Add it to this source repository as an Actions secret:
-   - Name: `RELEASES_REPO_TOKEN`
-
 Optional for signed and notarized macOS builds:
 
 - `APPLE_CERTIFICATE`
@@ -116,15 +95,6 @@ innomad-io/homebrew-tap
 ```
 
 If you use another tap, update `HOMEBREW_TAP_REPOSITORY` in:
-- [/.github/workflows/release.yml](/Users/innomad/lab/innomad-io/follower-bar/.github/workflows/release.yml)
-
-Public release repository in the workflow:
-
-```text
-innomad-io/followerbar-releases
-```
-
-If you use another public distribution repository, update `RELEASES_REPOSITORY` in:
 - [/.github/workflows/release.yml](/Users/innomad/lab/innomad-io/follower-bar/.github/workflows/release.yml)
 
 ## Tap repository structure

@@ -102,7 +102,7 @@ export function AccountRow({
       setError(message);
       if (
         message.includes("Xiaohongshu") &&
-        window.confirm("Open a visible browser window to complete Xiaohongshu verification?")
+        window.confirm(t("verify_prompt_xiaohongshu"))
       ) {
         await connectAdvancedProvider("xiaohongshu");
       }
@@ -143,40 +143,34 @@ export function AccountRow({
             </div>
           </div>
         </button>
-
-        <button
-          type="button"
-          className="row-action-button"
-          aria-label="Edit account"
-          onClick={onOpenEdit}
-        >
-          <svg viewBox="0 0 20 20" aria-hidden="true" className="h-4 w-4">
-            <path
-              d="M5 10a1.2 1.2 0 1 0 0 2.4A1.2 1.2 0 0 0 5 10Zm5 0a1.2 1.2 0 1 0 0 2.4A1.2 1.2 0 0 0 10 10Zm5 0a1.2 1.2 0 1 0 0 2.4A1.2 1.2 0 0 0 15 10Z"
-              fill="currentColor"
-            />
-          </svg>
-        </button>
       </div>
 
       {expanded ? (
         <div className="account-row-expanded">
           <div className="account-row-expanded-actions">
-            <span className="expansion-kicker">7D Growth</span>
+            <span className="expansion-kicker">{t("growth_7d")}</span>
             <div className="expansion-actions-right">
+              <button
+                type="button"
+                className="ghost-button compact"
+                aria-label="Edit account"
+                onClick={onOpenEdit}
+              >
+                {t("edit")}
+              </button>
               {account.can_verify_in_browser ? (
                 <button type="button" className="ghost-button compact" onClick={() => void handleVerify()}>
-                  {busy ? "Verifying..." : "Verify"}
+                  {busy ? t("verifying") : t("verify")}
                 </button>
               ) : (
                 <button type="button" className="ghost-button compact" onClick={() => void triggerRefresh()}>
-                  {busy ? "Refreshing..." : t("refresh")}
+                  {busy ? t("refreshing") : t("refresh")}
                 </button>
               )}
               <span className="expansion-meta">
                 {account.today_change === null
                   ? t("waiting_first_refresh")
-                  : `Avg. ${formatDelta(account.today_change)}/day`}
+                  : t("avg_per_day", { delta: formatDelta(account.today_change) })}
               </span>
             </div>
           </div>

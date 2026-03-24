@@ -269,6 +269,18 @@ select {
   font-size: 11px;
   font-weight: 500;
   color: #8d97a4;
+  min-width: 0;
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.bottom-bar-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
 }
 
 .refresh-button,
@@ -280,27 +292,30 @@ select {
   gap: 6px;
   border-radius: 8px;
   border: 0;
-  padding: 8px 12px;
+  padding: 8px 14px;
   font-size: 12px;
   font-weight: 700;
+  line-height: 1;
+  white-space: nowrap;
   transition: transform 120ms ease, opacity 120ms ease, background-color 120ms ease;
 }
 
 .refresh-button {
-  background: rgba(242, 244, 246, 0.98);
-  color: var(--primary);
-  box-shadow: inset 0 0 0 1px rgba(172, 179, 184, 0.18);
+  min-width: 88px;
+  background: rgba(221, 227, 233, 0.5);
+  color: var(--text-primary);
+  box-shadow: inset 0 0 0 1px rgba(172, 179, 184, 0.14);
 }
 
 .refresh-button:hover,
 .secondary-button:hover {
-  background: #e8edf2;
+  background: rgba(228, 233, 238, 0.82);
 }
 
 .primary-button {
-  background: linear-gradient(180deg, var(--primary), var(--primary-dim));
-  color: white;
-  box-shadow: 0 8px 20px rgba(0, 91, 193, 0.18);
+  background: rgba(0, 91, 193, 0.12);
+  color: var(--primary);
+  box-shadow: inset 0 0 0 1px rgba(0, 91, 193, 0.14);
 }
 
 .primary-button:disabled,
@@ -311,9 +326,9 @@ select {
 }
 
 .secondary-button {
-  background: rgba(242, 244, 246, 0.98);
+  background: rgba(221, 227, 233, 0.5);
   color: var(--text-primary);
-  box-shadow: inset 0 0 0 1px rgba(172, 179, 184, 0.18);
+  box-shadow: inset 0 0 0 1px rgba(172, 179, 184, 0.14);
 }
 
 .empty-state-card,
@@ -391,8 +406,11 @@ select {
 }
 
 .platform-card-icon {
-  font-size: 22px;
-  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 28px;
+  width: 28px;
   line-height: 1;
 }
 
@@ -865,7 +883,6 @@ select {
   color: #2364e6;
 }
 
-.row-action-button,
 .ghost-button {
   display: inline-flex;
   align-items: center;
@@ -876,13 +893,6 @@ select {
   transition: background-color 120ms ease, color 120ms ease;
 }
 
-.row-action-button {
-  height: 28px;
-  width: 28px;
-  border-radius: 8px;
-}
-
-.row-action-button:hover,
 .ghost-button:hover {
   background: rgba(228, 233, 238, 0.7);
   color: var(--text-primary);
@@ -894,6 +904,8 @@ select {
   padding: 7px 10px;
   font-size: 12px;
   font-weight: 600;
+  background: rgba(221, 227, 233, 0.42);
+  box-shadow: inset 0 0 0 1px rgba(172, 179, 184, 0.12);
 }
 
 .account-row-expanded {
@@ -935,29 +947,6 @@ select {
   margin-bottom: 8px;
   font-size: 11px;
   color: var(--text-secondary);
-}
-
-.refresh-button {
-  min-width: 86px;
-  background: linear-gradient(180deg, rgba(247, 249, 252, 0.98), rgba(233, 238, 244, 0.98));
-  color: var(--text-primary);
-  box-shadow:
-    inset 0 0 0 1px rgba(172, 179, 184, 0.22),
-    0 1px 2px rgba(45, 51, 56, 0.06);
-}
-
-.refresh-link {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  border: 0;
-  background: transparent;
-  padding: 0;
-  font-size: 11px;
-  font-weight: 800;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-  color: #2364e6;
 }
 
 .bottom-bar {
@@ -1056,6 +1045,21 @@ select {
   padding: 18px 14px;
 }
 
+.settings-about-copy {
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--text-secondary);
+}
+
+.settings-about-link {
+  color: var(--primary);
+  text-decoration: none;
+}
+
+.settings-about-link:hover {
+  text-decoration: underline;
+}
+
 .detail-summary {
   display: flex;
   align-items: center;
@@ -1079,6 +1083,10 @@ select {
 .primary-button.compact {
   padding: 7px 12px;
   font-size: 12px;
+}
+
+.add-flow-nav-button {
+  min-width: 68px;
 }
 
 .ghost-button.compact {
@@ -1275,16 +1283,17 @@ select {
   gap: 8px;
   border: 0;
   border-radius: 10px;
-  background: rgba(221, 227, 233, 0.72);
+  background: rgba(221, 227, 233, 0.5);
   padding: 12px 14px;
   font-size: 13px;
   font-weight: 700;
   color: var(--text-primary);
+  box-shadow: inset 0 0 0 1px rgba(172, 179, 184, 0.14);
   transition: opacity 120ms ease, background-color 120ms ease;
 }
 
 .provider-action-button.subtle {
-  background: rgba(242, 244, 246, 0.96);
+  background: rgba(221, 227, 233, 0.4);
 }
 
 .provider-action-button:disabled,
@@ -1317,7 +1326,7 @@ select {
   width: 100%;
   border: 1px solid rgba(176, 67, 67, 0.22);
   border-radius: 12px;
-  background: rgba(255, 247, 246, 0.68);
+  background: rgba(176, 67, 67, 0.08);
   padding: 14px 16px;
   font-size: 13px;
   font-weight: 800;
