@@ -11,6 +11,7 @@ use commands::AppState;
 use db::Database;
 use providers::ProviderManager;
 use scheduler::Scheduler;
+use std::env;
 use std::sync::atomic::AtomicBool;
 use std::sync::{Arc, Mutex};
 use tauri::{
@@ -130,6 +131,28 @@ fn animate_and_hide(window: &WebviewWindow, is_open: &AtomicBool) {
     let _ = window.hide();
 }
 
+fn current_menu_locale() -> &'static str {
+    if env::var("LC_ALL")
+        .ok()
+        .or_else(|| env::var("LC_MESSAGES").ok())
+        .or_else(|| env::var("LANG").ok())
+        .map(|value| value.to_lowercase().starts_with("zh"))
+        .unwrap_or(false)
+    {
+        "zh-CN"
+    } else {
+        "en"
+    }
+}
+
+fn quit_menu_title() -> &'static str {
+    if current_menu_locale() == "zh-CN" {
+        "退出 FollowerBar"
+    } else {
+        "Quit FollowerBar"
+    }
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     let is_window_open = Arc::new(AtomicBool::new(false));
@@ -185,7 +208,7 @@ pub fn run() {
             let _ = window.hide();
 
             let tray_icon = Image::new(include_bytes!("../icons/icon.rgba"), 64, 64);
-            let quit_item = MenuItemBuilder::with_id("quit", "Quit FollowerBar").build(app)?;
+            let quit_item = MenuItemBuilder::with_id("quit", quit_menu_title()).build(app)?;
             let tray_menu = MenuBuilder::new(app).item(&quit_item).build()?;
 
             let window_open_for_tray = Arc::clone(&is_window_open);

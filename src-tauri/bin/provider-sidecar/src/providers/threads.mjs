@@ -88,7 +88,7 @@ function normalizeInput(input) {
 }
 
 function parseCompactCount(input) {
-  const match = String(input ?? "").match(/([0-9]+(?:\.[0-9]+)?)([KMB])?/i);
+  const match = String(input ?? "").replaceAll(",", "").match(/([0-9]+(?:\.[0-9]+)?)([KMB])?/i);
   if (!match) return null;
   const value = Number(match[1]);
   if (!Number.isFinite(value)) return null;
@@ -106,14 +106,21 @@ function extractProfile({ title, finalUrl, bodyText, metaDescription }) {
   const username = titleMatch?.[2] ? `@${titleMatch[2]}` : resolvedId ? `@${resolvedId}` : null;
 
   let followers = null;
-  const metaMatch = String(metaDescription ?? "").match(/([0-9]+(?:\.[0-9]+)?[KMB]?)\s+Followers/i);
-  if (metaMatch) {
-    followers = parseCompactCount(metaMatch[1]);
+  const bodySource = String(bodyText ?? "");
+  const exactBodyMatch = bodySource.match(/([0-9][0-9,]{3,})\s+followers/i);
+  if (exactBodyMatch) {
+    followers = parseCompactCount(exactBodyMatch[1]);
   }
   if (followers === null) {
-    const bodyMatch = String(bodyText ?? "").match(/([0-9]+(?:\.[0-9]+)?[KMB]?)\s+followers/i);
-    if (bodyMatch) {
-      followers = parseCompactCount(bodyMatch[1]);
+    const compactBodyMatch = bodySource.match(/([0-9]+(?:\.[0-9]+)?[KMB])\s+followers/i);
+    if (compactBodyMatch) {
+      followers = parseCompactCount(compactBodyMatch[1]);
+    }
+  }
+  if (followers === null) {
+    const metaMatch = String(metaDescription ?? "").match(/([0-9]+(?:\.[0-9]+)?[KMB]?)\s+Followers/i);
+    if (metaMatch) {
+      followers = parseCompactCount(metaMatch[1]);
     }
   }
 

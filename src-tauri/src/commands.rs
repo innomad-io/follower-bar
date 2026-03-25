@@ -396,11 +396,15 @@ pub fn get_advanced_provider_status(
 }
 
 #[tauri::command]
-pub fn install_advanced_provider_runtime(
+pub async fn install_advanced_provider_runtime(
     app: tauri::AppHandle,
     provider: String,
 ) -> Result<AdvancedProviderStatus, String> {
-    advanced_runtime::install_provider_runtime(&app, &provider).map_err(|err| err.to_string())
+    tauri::async_runtime::spawn_blocking(move || {
+        advanced_runtime::install_provider_runtime(&app, &provider).map_err(|err| err.to_string())
+    })
+    .await
+    .map_err(|err| err.to_string())?
 }
 
 #[tauri::command]

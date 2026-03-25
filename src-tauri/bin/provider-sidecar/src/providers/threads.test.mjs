@@ -22,7 +22,7 @@ test("extractProfile parses title and meta description", () => {
     __test_extractProfile({
       title: "Mark Zuckerberg (@zuck) • Threads, Say more",
       finalUrl: "https://www.threads.com/@zuck",
-      bodyText: "zuck\nMark Zuckerberg\n5.4M followers\nFollow",
+      bodyText: "zuck\nMark Zuckerberg\n5,543,210 followers\nFollow",
       metaDescription:
         "5.5M Followers • 142 Threads • Mostly superintelligence and MMA takes. See the latest conversations with @zuck.",
     }),
@@ -30,7 +30,7 @@ test("extractProfile parses title and meta description", () => {
       displayName: "Mark Zuckerberg",
       username: "@zuck",
       resolvedId: "zuck",
-      followers: 5500000,
+      followers: 5543210,
     }
   );
 });

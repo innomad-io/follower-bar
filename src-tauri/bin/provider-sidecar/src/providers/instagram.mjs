@@ -25,6 +25,30 @@ export async function fetchProfile(payload) {
     };
   }
 
+  const apiProfile = await fetchProfileViaPublicApi(username).catch(() => null);
+  if (apiProfile) {
+    return {
+      ok: true,
+      platform: "instagram",
+      display_name: apiProfile.displayName,
+      username: apiProfile.username,
+      resolved_id: apiProfile.resolvedId,
+      followers: apiProfile.followers,
+    };
+  }
+
+  const htmlProfile = await fetchProfileViaPublicHtml(username).catch(() => null);
+  if (htmlProfile) {
+    return {
+      ok: true,
+      platform: "instagram",
+      display_name: htmlProfile.displayName,
+      username: htmlProfile.username,
+      resolved_id: htmlProfile.resolvedId,
+      followers: htmlProfile.followers,
+    };
+  }
+
   const browser = await chromium.launch({ headless: true });
   try {
     const page = await browser.newPage({ userAgent: PUBLIC_INSTAGRAM_USER_AGENT });
@@ -63,6 +87,68 @@ export async function fetchProfile(payload) {
   }
 }
 
+async function fetchProfileViaPublicApi(username) {
+  const response = await fetch(
+    `https://www.instagram.com/api/v1/users/web_profile_info/?username=${encodeURIComponent(username)}`,
+    {
+      headers: {
+        "user-agent": PUBLIC_INSTAGRAM_USER_AGENT,
+        "x-ig-app-id": "936619743392459",
+        "x-asbd-id": "129477",
+        "x-requested-with": "XMLHttpRequest",
+        referer: `https://www.instagram.com/${username}/`,
+        accept: "application/json",
+        "accept-language": "en-US,en;q=0.9",
+      },
+    }
+  );
+
+  if (!response.ok) {
+    return null;
+  }
+
+  const payload = await response.json().catch(() => null);
+  const user = payload?.data?.user;
+  const followers = user?.edge_followed_by?.count;
+  const resolvedId = user?.username;
+  const displayName = user?.full_name;
+  if (!displayName || !resolvedId || !Number.isFinite(followers)) {
+    return null;
+  }
+
+  return {
+    displayName,
+    username: `@${resolvedId}`,
+    resolvedId,
+    followers,
+  };
+}
+
+async function fetchProfileViaPublicHtml(username) {
+  const response = await fetch(`https://www.instagram.com/${encodeURIComponent(username)}/`, {
+    headers: {
+      "user-agent": PUBLIC_INSTAGRAM_USER_AGENT,
+      accept: "text/html,application/xhtml+xml",
+      "accept-language": "en-US,en;q=0.9",
+    },
+    redirect: "follow",
+  });
+
+  if (!response.ok) {
+    return null;
+  }
+
+  const html = await response.text();
+  const finalUrl = response.url;
+  const titleMatch = html.match(/<title>([^<]+)<\/title>/i);
+  const title = decodeHtmlEntities(titleMatch?.[1] ?? "");
+  const metaMatch = html.match(
+    /<meta[^>]+(?:property="og:description"|name="description")[^>]+content="([^"]+)"/i
+  );
+  const metaDescription = decodeHtmlEntities(metaMatch?.[1] ?? "");
+  return extractProfile({ title, finalUrl, bodyText: "", metaDescription });
+}
+
 function normalizeInput(input) {
   const trimmed = String(input ?? "").trim().replace(/\/+$/, "");
   if (!trimmed) return null;
@@ -97,20 +183,30 @@ function parseCompactCount(input) {
 }
 
 function extractProfile({ title, finalUrl, bodyText, metaDescription }) {
+  if (String(finalUrl ?? "").includes("/accounts/")) {
+    return null;
+  }
   const resolvedId = normalizeInput(finalUrl);
   const titleMatch = String(title ?? "").match(/^(.*?)\s+\(@([A-Za-z0-9._]+)\)\s+•\s+Instagram/i);
   const displayName = titleMatch?.[1]?.trim() || null;
   const username = titleMatch?.[2] ? `@${titleMatch[2]}` : resolvedId ? `@${resolvedId}` : null;
 
   let followers = null;
-  const metaMatch = String(metaDescription ?? "").match(/([0-9][0-9,\.]*[KMB]?)\s+Followers/i);
-  if (metaMatch) {
-    followers = parseCompactCount(metaMatch[1]);
+  const bodySource = String(bodyText ?? "");
+  const exactBodyMatch = bodySource.match(/([0-9][0-9,]{3,})\s+followers/i);
+  if (exactBodyMatch) {
+    followers = parseCompactCount(exactBodyMatch[1]);
   }
   if (followers === null) {
-    const bodyMatch = String(bodyText ?? "").match(/([0-9][0-9,\.]*[KMB]?)\s+followers/i);
-    if (bodyMatch) {
-      followers = parseCompactCount(bodyMatch[1]);
+    const compactBodyMatch = bodySource.match(/([0-9][0-9,\.]*[KMB]?)\s+followers/i);
+    if (compactBodyMatch) {
+      followers = parseCompactCount(compactBodyMatch[1]);
+    }
+  }
+  if (followers === null) {
+    const metaMatch = String(metaDescription ?? "").match(/([0-9][0-9,\.]*[KMB]?)\s+Followers/i);
+    if (metaMatch) {
+      followers = parseCompactCount(metaMatch[1]);
     }
   }
 
@@ -131,4 +227,17 @@ export function __test_parseCompactCount(input) {
 
 export function __test_extractProfile(input) {
   return extractProfile(input);
+}
+
+export async function __test_fetchProfileViaPublicApi(username) {
+  return fetchProfileViaPublicApi(username);
+}
+
+function decodeHtmlEntities(input) {
+  return String(input ?? "")
+    .replaceAll("&#064;", "@")
+    .replaceAll("&#039;", "'")
+    .replaceAll("&quot;", '"')
+    .replaceAll("&amp;", "&")
+    .replaceAll("&#x2022;", "•");
 }

@@ -257,6 +257,7 @@ export function AccountDetail({
     setBusyAction("install-runtime");
     setMessage(null);
     setInstallProgress(12);
+    await new Promise<void>((resolve) => window.requestAnimationFrame(() => resolve()));
     try {
       const nextStatus = await installAdvancedProviderRuntime(account.provider);
       setInstallProgress(100);
