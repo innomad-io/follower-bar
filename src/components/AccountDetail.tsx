@@ -135,6 +135,7 @@ export function AccountDetail({
   const [advancedStatus, setAdvancedStatus] = useState<AdvancedProviderStatus | null>(null);
   const [busyAction, setBusyAction] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
+  const [installProgress, setInstallProgress] = useState(0);
 
   useEffect(() => {
     if (!account) {
@@ -170,6 +171,30 @@ export function AccountDetail({
       }
     })();
   }, [account]);
+
+  useEffect(() => {
+    if (busyAction !== "install-runtime") {
+      setInstallProgress(0);
+      return;
+    }
+
+    setInstallProgress(12);
+    const startedAt = Date.now();
+    const timer = window.setInterval(() => {
+      const elapsed = Date.now() - startedAt;
+      if (elapsed < 1200) {
+        setInstallProgress(18);
+      } else if (elapsed < 3500) {
+        setInstallProgress(42);
+      } else if (elapsed < 9000) {
+        setInstallProgress(72);
+      } else {
+        setInstallProgress((current) => Math.min(current + 3, 92));
+      }
+    }, 400);
+
+    return () => window.clearInterval(timer);
+  }, [busyAction]);
 
   if (!account) {
     return (
@@ -227,6 +252,21 @@ export function AccountDetail({
     account.display_name?.trim() ||
     formatAccountDisplayValue(account.provider, editableUsername || account.username) ||
     t("account");
+
+  const installRuntime = async () => {
+    setBusyAction("install-runtime");
+    setMessage(null);
+    setInstallProgress(12);
+    try {
+      const nextStatus = await installAdvancedProviderRuntime(account.provider);
+      setInstallProgress(100);
+      setAdvancedStatus(nextStatus);
+    } catch (err) {
+      setMessage(err instanceof Error ? err.message : String(err));
+    } finally {
+      window.setTimeout(() => setBusyAction(null), 240);
+    }
+  };
 
   return (
     <div className="screen-shell">
@@ -383,23 +423,22 @@ export function AccountDetail({
                   </div>
                 </div>
                 <div className="provider-status-note">{t(providerStatusCopyKey(advancedStatus))}</div>
+                {busyAction === "install-runtime" ? (
+                  <div className="install-progress-card" role="status" aria-live="polite">
+                    <div className="install-progress-track">
+                      <div
+                        className="install-progress-fill"
+                        style={{ width: `${installProgress}%` }}
+                      />
+                    </div>
+                  </div>
+                ) : null}
                 <div className="inline-actions wrap">
                   <button
                     type="button"
                     className="secondary-button"
                     disabled={busyAction === "install-runtime"}
-                    onClick={async () => {
-                      setBusyAction("install-runtime");
-                      setMessage(null);
-                      try {
-                        const nextStatus = await installAdvancedProviderRuntime(account.provider);
-                        setAdvancedStatus(nextStatus);
-                      } catch (err) {
-                        setMessage(err instanceof Error ? err.message : String(err));
-                      } finally {
-                        setBusyAction(null);
-                      }
-                    }}
+                    onClick={() => void installRuntime()}
                   >
                     {busyAction === "install-runtime" ? t("installing") : t("install_runtime")}
                   </button>
@@ -467,23 +506,22 @@ export function AccountDetail({
                     </div>
                   </div>
                   <div className="provider-status-note">{t(publicPageCopyKey(account.provider))}</div>
+                  {busyAction === "install-runtime" ? (
+                    <div className="install-progress-card" role="status" aria-live="polite">
+                      <div className="install-progress-track">
+                        <div
+                          className="install-progress-fill"
+                          style={{ width: `${installProgress}%` }}
+                        />
+                      </div>
+                    </div>
+                  ) : null}
                   <div className="inline-actions wrap">
                     <button
                       type="button"
                       className="secondary-button"
                       disabled={busyAction === "install-runtime"}
-                      onClick={async () => {
-                        setBusyAction("install-runtime");
-                        setMessage(null);
-                        try {
-                          const nextStatus = await installAdvancedProviderRuntime(account.provider);
-                          setAdvancedStatus(nextStatus);
-                        } catch (err) {
-                          setMessage(err instanceof Error ? err.message : String(err));
-                        } finally {
-                          setBusyAction(null);
-                        }
-                      }}
+                      onClick={() => void installRuntime()}
                     >
                       {busyAction === "install-runtime" ? t("installing") : t("install_runtime")}
                     </button>

@@ -1356,6 +1356,26 @@ select {
   color: var(--text-secondary);
 }
 
+.install-progress-card {
+  margin-top: 2px;
+}
+
+.install-progress-track {
+  height: 8px;
+  width: 100%;
+  overflow: hidden;
+  border-radius: 999px;
+  background: rgba(221, 227, 233, 0.72);
+  box-shadow: inset 0 0 0 1px rgba(172, 179, 184, 0.14);
+}
+
+.install-progress-fill {
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, #2563eb 0%, #4f46e5 100%);
+  transition: width 220ms ease;
+}
+
 .danger-zone .settings-card {
   background: rgba(255, 255, 255, 0.82);
 }
