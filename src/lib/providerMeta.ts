@@ -10,6 +10,12 @@ export function providerLabel(provider: string) {
       return "Xiaohongshu";
     case "douyin":
       return "Douyin";
+    case "threads":
+      return "Threads";
+    case "instagram":
+      return "Instagram";
+    case "zhihu":
+      return "Zhihu";
     case "wechat":
       return "WeChat";
     default:

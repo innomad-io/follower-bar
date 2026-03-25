@@ -15,6 +15,9 @@ const XIAOHONGSHU_PROVIDER: &str = "xiaohongshu";
 const X_PROVIDER: &str = "x";
 const WECHAT_PROVIDER: &str = "wechat";
 const DOUYIN_PROVIDER: &str = "douyin";
+const THREADS_PROVIDER: &str = "threads";
+const INSTAGRAM_PROVIDER: &str = "instagram";
+const ZHIHU_PROVIDER: &str = "zhihu";
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AdvancedProviderStatus {
@@ -142,6 +145,21 @@ pub fn fetch_wechat_profile(app: &AppHandle, input: &str) -> Result<FollowerData
 pub fn fetch_douyin_profile(app: &AppHandle, input: &str) -> Result<FollowerData> {
     ensure_runtime_ready(app)?;
     run_public_profile_action(app, DOUYIN_PROVIDER, input, "fetch_profile")
+}
+
+pub fn fetch_threads_profile(app: &AppHandle, input: &str) -> Result<FollowerData> {
+    ensure_runtime_ready(app)?;
+    run_public_profile_action(app, THREADS_PROVIDER, input, "fetch_profile")
+}
+
+pub fn fetch_instagram_profile(app: &AppHandle, input: &str) -> Result<FollowerData> {
+    ensure_runtime_ready(app)?;
+    run_public_profile_action(app, INSTAGRAM_PROVIDER, input, "fetch_profile")
+}
+
+pub fn fetch_zhihu_profile(app: &AppHandle, input: &str) -> Result<FollowerData> {
+    ensure_runtime_ready(app)?;
+    run_public_profile_action(app, ZHIHU_PROVIDER, input, "fetch_profile")
 }
 
 pub fn verify_xiaohongshu_profile(app: &AppHandle, input: &str) -> Result<FollowerData> {
@@ -545,6 +563,9 @@ fn ensure_supported(provider: &str) -> Result<()> {
         || provider == X_PROVIDER
         || provider == WECHAT_PROVIDER
         || provider == DOUYIN_PROVIDER
+        || provider == THREADS_PROVIDER
+        || provider == INSTAGRAM_PROVIDER
+        || provider == ZHIHU_PROVIDER
     {
         Ok(())
     } else {

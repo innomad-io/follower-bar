@@ -882,6 +882,27 @@ select {
   color: var(--secondary);
 }
 
+.provider-badge-brand {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  border-radius: 6px;
+  font-size: 14px;
+  font-weight: 800;
+  color: white;
+  line-height: 1;
+}
+
+.provider-badge-threads {
+  background: linear-gradient(135deg, #111111 0%, #2c2c2c 100%);
+}
+
+.provider-badge-instagram {
+  background: linear-gradient(135deg, #f58529 0%, #dd2a7b 45%, #8134af 70%, #515bd4 100%);
+}
+
 .account-row-trailing {
   min-width: 72px;
 }

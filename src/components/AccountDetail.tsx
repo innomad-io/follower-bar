@@ -50,6 +50,9 @@ function providerMethodOptions(provider: string): ProviderOption[] {
       ];
     case "bilibili":
     case "douyin":
+    case "threads":
+    case "instagram":
+    case "zhihu":
       return [
         {
           id: "public_page",
@@ -153,7 +156,10 @@ export function AccountDetail({
           account.provider === "xiaohongshu" ||
           account.provider === "wechat" ||
           account.provider === "douyin" ||
-          account.provider === "x"
+          account.provider === "x" ||
+          account.provider === "threads" ||
+          account.provider === "instagram" ||
+          account.provider === "zhihu"
         ) {
           setAdvancedStatus(await getAdvancedProviderStatus(account.provider));
         } else {
@@ -209,7 +215,12 @@ export function AccountDetail({
   const supportsApiCredential = account.provider === "x" || account.provider === "youtube";
   const supportsBrowserLink = account.provider === "xiaohongshu" || account.provider === "wechat";
   const supportsRuntime =
-    supportsBrowserLink || account.provider === "douyin" || account.provider === "x";
+    supportsBrowserLink ||
+    account.provider === "douyin" ||
+    account.provider === "x" ||
+    account.provider === "threads" ||
+    account.provider === "instagram" ||
+    account.provider === "zhihu";
   const isWechat = account.provider === "wechat";
   const editableUsername = isWechat && username === "__wechat_pending__" ? "" : username;
   const headerIdentifier =

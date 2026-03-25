@@ -1,9 +1,12 @@
 pub mod bilibili;
 pub mod douyin;
+pub mod instagram;
+pub mod threads;
 pub mod wechat;
 pub mod x;
 pub mod xiaohongshu;
 pub mod youtube;
+pub mod zhihu;
 
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
@@ -55,6 +58,9 @@ impl ProviderManager {
         manager.register(Box::new(xiaohongshu::XiaohongshuProvider));
         manager.register(Box::new(wechat::WechatProvider));
         manager.register(Box::new(douyin::DouyinProvider));
+        manager.register(Box::new(instagram::InstagramProvider));
+        manager.register(Box::new(threads::ThreadsProvider));
+        manager.register(Box::new(zhihu::ZhihuProvider));
 
         manager
     }

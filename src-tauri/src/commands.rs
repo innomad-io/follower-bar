@@ -173,6 +173,12 @@ async fn refresh_single_account_internal(
         advanced_runtime::fetch_wechat_profile(app, fetch_target)
     } else if account.provider == "douyin" {
         advanced_runtime::fetch_douyin_profile(app, fetch_target)
+    } else if account.provider == "threads" {
+        advanced_runtime::fetch_threads_profile(app, fetch_target)
+    } else if account.provider == "instagram" {
+        advanced_runtime::fetch_instagram_profile(app, fetch_target)
+    } else if account.provider == "zhihu" {
+        advanced_runtime::fetch_zhihu_profile(app, fetch_target)
     } else if account.provider == "x" {
         match provider_method.as_str() {
             "official_api" => {

@@ -14,6 +14,9 @@ const PROVIDER_LABELS: Record<string, string> = {
   bilibili: "Bilibili",
   xiaohongshu: "Xiaohongshu",
   douyin: "Douyin",
+  threads: "Threads",
+  instagram: "Instagram",
+  zhihu: "Zhihu",
   wechat: "WeChat",
 };
 
@@ -24,9 +27,18 @@ const PROVIDER_FAVICONS: Record<string, string> = {
   wechat: "https://res.wx.qq.com/a/wx_fed/assets/res/NTI4MWU5.ico",
   xiaohongshu: "https://www.xiaohongshu.com/favicon.ico",
   douyin: "https://www.douyin.com/favicon.ico",
+  zhihu: "https://static.zhihu.com/heifetz/favicon.ico",
 };
 
 function ProviderLogo({ provider }: { provider: string }) {
+  if (provider === "threads") {
+    return <span className="provider-badge-brand provider-badge-threads">＠</span>;
+  }
+
+  if (provider === "instagram") {
+    return <span className="provider-badge-brand provider-badge-instagram">◎</span>;
+  }
+
   const favicon = PROVIDER_FAVICONS[provider];
   if (!favicon) {
     return <span className="provider-badge-fallback">{PROVIDER_LABELS[provider]?.slice(0, 1) ?? "•"}</span>;
@@ -71,6 +83,12 @@ export function AddAccount({ onAdded, onCancel }: AddAccountProps) {
         ? "douyin.com/user/... URL or user ID"
       : selectedProvider?.id === "xiaohongshu"
         ? "user/profile URL or user ID"
+      : selectedProvider?.id === "threads"
+        ? "@handle or threads.net/@handle"
+      : selectedProvider?.id === "instagram"
+        ? "@handle or instagram.com/handle"
+      : selectedProvider?.id === "zhihu"
+        ? "zhihu.com/people/... URL or profile slug"
       : selectedProvider?.id === "wechat"
         ? t("wechat_account_label_placeholder")
         : "Handle, username, or profile URL";
@@ -82,6 +100,8 @@ export function AddAccount({ onAdded, onCancel }: AddAccountProps) {
         ? t("add_account_helper_xiaohongshu")
       : selectedProvider?.id === "douyin"
         ? t("add_account_helper_douyin")
+      : selectedProvider?.id === "threads" || selectedProvider?.id === "instagram" || selectedProvider?.id === "zhihu"
+        ? t("public_page_runtime_required")
       : selectedProvider?.id === "wechat"
         ? t("add_account_helper_wechat")
         : t("add_account_helper_default");

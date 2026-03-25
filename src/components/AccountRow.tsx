@@ -33,9 +33,18 @@ const PROVIDER_FAVICONS: Record<string, string> = {
   wechat: "https://res.wx.qq.com/a/wx_fed/assets/res/NTI4MWU5.ico",
   xiaohongshu: "https://www.xiaohongshu.com/favicon.ico",
   douyin: "https://www.douyin.com/favicon.ico",
+  zhihu: "https://static.zhihu.com/heifetz/favicon.ico",
 };
 
 function ProviderLogo({ provider }: { provider: string }) {
+  if (provider === "threads") {
+    return <span className="provider-badge-brand provider-badge-threads">＠</span>;
+  }
+
+  if (provider === "instagram") {
+    return <span className="provider-badge-brand provider-badge-instagram">◎</span>;
+  }
+
   const favicon = PROVIDER_FAVICONS[provider];
   if (!favicon) {
     return <span className="provider-badge-fallback">{providerLabel(provider).slice(0, 1)}</span>;

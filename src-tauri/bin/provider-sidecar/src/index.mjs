@@ -15,6 +15,18 @@ import {
   fetchProfile as fetchDouyinProfile,
 } from "./providers/douyin.mjs";
 import {
+  healthCheck as threadsHealthCheck,
+  fetchProfile as fetchThreadsProfile,
+} from "./providers/threads.mjs";
+import {
+  healthCheck as instagramHealthCheck,
+  fetchProfile as fetchInstagramProfile,
+} from "./providers/instagram.mjs";
+import {
+  healthCheck as zhihuHealthCheck,
+  fetchProfile as fetchZhihuProfile,
+} from "./providers/zhihu.mjs";
+import {
   healthCheck as wechatHealthCheck,
   connect as connectWechat,
   fetchProfile as fetchWechatProfile,
@@ -63,6 +75,30 @@ async function dispatch(payload) {
       result = await douyinHealthCheck(payload);
     } else if (action === "fetch_profile") {
       result = await fetchDouyinProfile(payload);
+    } else {
+      throw new Error(`Unsupported action for ${platform}: ${action}`);
+    }
+  } else if (platform === "threads") {
+    if (action === "health_check") {
+      result = await threadsHealthCheck(payload);
+    } else if (action === "fetch_profile") {
+      result = await fetchThreadsProfile(payload);
+    } else {
+      throw new Error(`Unsupported action for ${platform}: ${action}`);
+    }
+  } else if (platform === "instagram") {
+    if (action === "health_check") {
+      result = await instagramHealthCheck(payload);
+    } else if (action === "fetch_profile") {
+      result = await fetchInstagramProfile(payload);
+    } else {
+      throw new Error(`Unsupported action for ${platform}: ${action}`);
+    }
+  } else if (platform === "zhihu") {
+    if (action === "health_check") {
+      result = await zhihuHealthCheck(payload);
+    } else if (action === "fetch_profile") {
+      result = await fetchZhihuProfile(payload);
     } else {
       throw new Error(`Unsupported action for ${platform}: ${action}`);
     }
