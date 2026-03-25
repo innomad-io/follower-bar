@@ -49,6 +49,9 @@ jobs:
       - name: Install frontend dependencies
         run: pnpm install --frozen-lockfile
 
+      - name: Install provider sidecar dependencies
+        run: pnpm install --dir src-tauri/bin/provider-sidecar --frozen-lockfile
+
       - name: Decide Apple signing mode
         id: signing
         shell: bash
