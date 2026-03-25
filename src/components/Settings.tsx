@@ -6,6 +6,7 @@ import {
   getMilestoneEnabled,
   getRefreshInterval,
   openRefreshLogs,
+  quitApp,
   setAutostart,
   setMilestoneEnabled,
   setRefreshInterval,
@@ -225,6 +226,13 @@ export function Settings({ onBack }: SettingsProps) {
             className="secondary-button compact settings-about-action"
           >
             {t("view_logs")}
+          </button>
+          <button
+            type="button"
+            onClick={() => void quitApp()}
+            className="secondary-button compact settings-about-action"
+          >
+            {t("quit_app")}
           </button>
         </section>
       </main>

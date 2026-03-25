@@ -449,6 +449,12 @@ pub fn open_refresh_logs(app: tauri::AppHandle) -> Result<(), String> {
 }
 
 #[tauri::command]
+pub fn quit_app(app: tauri::AppHandle) -> Result<(), String> {
+    app.exit(0);
+    Ok(())
+}
+
+#[tauri::command]
 pub fn list_accounts(state: State<'_, AppState>) -> Result<Vec<AccountWithStats>, String> {
     let db = state.db.lock().map_err(|err| err.to_string())?;
     let accounts = db.list_accounts().map_err(|err| err.to_string())?;

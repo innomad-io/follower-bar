@@ -35,6 +35,7 @@ type MessageKey =
   | "language"
   | "language_copy"
   | "view_logs"
+  | "quit_app"
   | "view_logs_copy"
   | "version_label"
   | "done"
@@ -158,6 +159,7 @@ const messages: Record<Exclude<SupportedLocale, "system">, Record<MessageKey, st
     language: "Language",
     language_copy: "Choose the interface language or follow the macOS system setting.",
     view_logs: "View Logs",
+    quit_app: "Quit FollowerBar",
     view_logs_copy: "Open the refresh log folder for troubleshooting.",
     version_label: "Version",
     done: "Done",
@@ -284,6 +286,7 @@ const messages: Record<Exclude<SupportedLocale, "system">, Record<MessageKey, st
     language: "语言",
     language_copy: "选择界面语言，或跟随 macOS 系统设置。",
     view_logs: "查看日志",
+    quit_app: "退出 FollowerBar",
     view_logs_copy: "打开刷新日志目录，便于排查问题。",
     version_label: "版本",
     done: "完成",

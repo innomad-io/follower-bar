@@ -99,3 +99,7 @@ export function verifyXiaohongshuAccount(accountId: string): Promise<void> {
 export function openRefreshLogs(): Promise<void> {
   return invoke("open_refresh_logs");
 }
+
+export function quitApp(): Promise<void> {
+  return invoke("quit_app");
+}

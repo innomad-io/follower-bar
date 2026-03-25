@@ -35,7 +35,10 @@
     "active": true,
     "targets": "all",
     "resources": [
-      "bin/provider-sidecar"
+      "bin/provider-sidecar/src",
+      "bin/provider-sidecar/package.json",
+      "bin/provider-sidecar/pnpm-lock.yaml",
+      "bin/provider-sidecar/node_modules"
     ],
     "icon": [
       "icons/icon.icns",

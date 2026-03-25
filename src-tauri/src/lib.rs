@@ -15,6 +15,7 @@ use std::sync::atomic::AtomicBool;
 use std::sync::{Arc, Mutex};
 use tauri::{
     image::Image,
+    menu::{MenuBuilder, MenuItemBuilder},
     tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent},
     Emitter, Manager, Monitor, PhysicalPosition, PhysicalSize, Position, Rect, WebviewWindow,
     WindowEvent,
@@ -184,12 +185,16 @@ pub fn run() {
             let _ = window.hide();
 
             let tray_icon = Image::new(include_bytes!("../icons/icon.rgba"), 64, 64);
+            let quit_item = MenuItemBuilder::with_id("quit", "Quit FollowerBar").build(app)?;
+            let tray_menu = MenuBuilder::new(app).item(&quit_item).build()?;
 
             let window_open_for_tray = Arc::clone(&is_window_open);
             let _tray = TrayIconBuilder::new()
                 .icon(tray_icon)
                 .icon_as_template(true)
                 .tooltip("FollowerBar")
+                .menu(&tray_menu)
+                .show_menu_on_left_click(false)
                 .on_tray_icon_event(move |tray, event| {
                     if let TrayIconEvent::Click {
                         button: MouseButton::Left,
@@ -210,6 +215,11 @@ pub fn run() {
                                 let _ = window.set_focus();
                             }
                         }
+                    }
+                })
+                .on_menu_event(move |app, event| {
+                    if event.id().as_ref() == "quit" {
+                        app.app_handle().exit(0);
                     }
                 })
                 .build(app)?;
@@ -237,7 +247,8 @@ pub fn run() {
             commands::install_advanced_provider_runtime,
             commands::connect_advanced_provider,
             commands::verify_xiaohongshu_account,
-            commands::open_refresh_logs
+            commands::open_refresh_logs,
+            commands::quit_app
         ])
         .run(tauri::generate_context!())
         .expect("error while running Tauri application");

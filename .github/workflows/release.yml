@@ -50,7 +50,7 @@ jobs:
         run: pnpm install --frozen-lockfile
 
       - name: Install provider sidecar dependencies
-        run: pnpm install --dir src-tauri/bin/provider-sidecar --frozen-lockfile
+        run: pnpm install --dir src-tauri/bin/provider-sidecar --frozen-lockfile --config.node-linker=hoisted
 
       - name: Decide Apple signing mode
         id: signing
