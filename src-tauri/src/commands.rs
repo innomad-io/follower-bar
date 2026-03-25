@@ -116,6 +116,31 @@ fn is_lightweight_refresh(provider: &str, provider_method: &str) -> bool {
     }
 }
 
+fn is_valid_resolved_id(provider: &str, resolved_id: Option<&str>) -> bool {
+    let Some(value) = resolved_id.map(str::trim).filter(|value| !value.is_empty()) else {
+        return false;
+    };
+
+    match provider {
+        "instagram" => {
+            let lower = value.to_ascii_lowercase();
+            !matches!(
+                lower.as_str(),
+                "accounts" | "accounts/login" | "login" | "challenge"
+            )
+        }
+        _ => true,
+    }
+}
+
+fn fetch_target_for_account(account: &Account) -> &str {
+    if is_valid_resolved_id(&account.provider, account.resolved_id.as_deref()) {
+        account.resolved_id.as_deref().unwrap_or(account.username.as_str())
+    } else {
+        account.username.as_str()
+    }
+}
+
 async fn refresh_single_account_internal(
     state: &AppState,
     app: &tauri::AppHandle,
@@ -163,10 +188,7 @@ async fn refresh_single_account_internal(
         }
     }
 
-    let fetch_target = account
-        .resolved_id
-        .as_deref()
-        .unwrap_or(account.username.as_str());
+    let fetch_target = fetch_target_for_account(account);
     let fetch_result = if account.provider == "xiaohongshu" {
         advanced_runtime::fetch_xiaohongshu_profile(app, fetch_target)
     } else if account.provider == "wechat" {
@@ -226,7 +248,13 @@ async fn refresh_single_account_internal(
                 .as_ref()
                 .and_then(|extra| extra.get("resolved_id"))
                 .cloned()
-                .or(account.resolved_id.clone());
+                .or_else(|| {
+                    if is_valid_resolved_id(&account.provider, account.resolved_id.as_deref()) {
+                        account.resolved_id.clone()
+                    } else {
+                        None
+                    }
+                });
             let display_name = data
                 .extra
                 .as_ref()
